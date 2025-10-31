@@ -1,0 +1,209 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+:root {
+    /* Nuxt UI Background colors - Light mode */
+    --ui-bg: #ffffff; /* white base background */
+    --ui-bg-elevated: #ffffff; /* white for cards in light mode */
+    --ui-bg-accented: #ffffff; /* white accented backgrounds */
+    --ui-bg-inverted: #000000; /* black for inverted elements */
+
+    /* Nuxt UI Foreground/Text colors - Light mode */
+    --ui-fg: #000000; /* black text */
+    --ui-text: #000000; /* black text */
+    --ui-text-highlighted: #000000; /* black highlighted text */
+    --ui-text-muted: #6b7280; /* gray-500 muted text */
+    --ui-text-dimmed: #9ca3af; /* gray-400 dimmed text */
+    --ui-text-inverted: #ffffff; /* white text on dark backgrounds */
+
+    /* Nuxt UI Border colors - Light mode */
+    --ui-border: #e5e7eb; /* gray-200 */
+    --ui-border-accented: #d1d5db; /* gray-300 */
+
+    /* Nuxt UI Ring/Focus colors - Light mode */
+    --ui-ring: #000000; /* black focus rings */
+
+    /* Nuxt UI Primary color - Light mode */
+    --ui-primary: #000000; /* black primary color */
+    --ui-primary-50: #f9fafb;
+    --ui-primary-100: #f3f4f6;
+    --ui-primary-500: #000000;
+    --ui-primary-600: #000000;
+
+    /* Standard color shades for Nuxt UI components */
+    --color-gray-50: #f9fafb;
+    --color-gray-100: #f3f4f6;
+    --color-gray-200: #e5e7eb;
+    --color-gray-300: #d1d5db;
+    --color-gray-400: #9ca3af;
+    --color-gray-500: #6b7280;
+    --color-gray-600: #4b5563;
+    --color-gray-700: #374151;
+    --color-gray-800: #1f2937;
+    --color-gray-900: #111827;
+}
+
+/* Button styles */
+button,
+.btn,
+[role="button"] {
+    cursor: pointer;
+}
+
+/* Theme Variables for dashboard (keep for compatibility) */
+:root {
+    --bg-color: #ffffff;
+    --bg: #ffffff;
+    --bg-secondary: #ffffff; /* white cards in light mode */
+    --bg-hover: #f0f0f0;
+    --text-color: #000000;
+    --text: #000000;
+    --text-muted: #6c757d;
+    --border-color: #e5e5e5;
+    --border: #e5e5e5;
+    --button-bg: #f5f5f5;
+    --button-hover: #e5e5e5;
+    --shadow: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] {
+    /* Dashboard CSS variables (keep for compatibility) */
+    --bg-color: #000000;
+    --bg: #000000;
+    --bg-secondary: #1a1a1a;
+    --bg-hover: #333333;
+    --text-color: #ffffff;
+    --text: #ffffff;
+    --text-muted: #adb5bd;
+    --border-color: #333333;
+    --border: #333333;
+    --button-bg: #1a1a1a;
+    --button-hover: #333333;
+    --shadow: rgba(255, 255, 255, 0.1);
+
+    /* Nuxt UI Background colors - Dark mode */
+    --ui-bg: #000000; /* black base background */
+    --ui-bg-elevated: #1a1a1a; /* dark gray for cards */
+    --ui-bg-accented: #1a1a1a; /* accented backgrounds */
+    --ui-bg-inverted: #ffffff; /* white for inverted elements */
+
+    /* Nuxt UI Foreground/Text colors - Dark mode */
+    --ui-fg: #ffffff; /* white text */
+    --ui-text: #ffffff; /* white text */
+    --ui-text-highlighted: #ffffff; /* white highlighted text */
+    --ui-text-muted: #adb5bd; /* gray-400 muted text */
+    --ui-text-dimmed: #6b7280; /* gray-500 dimmed text */
+    --ui-text-inverted: #000000; /* black text on light backgrounds */
+
+    /* Nuxt UI Border colors - Dark mode */
+    --ui-border: #333333; /* dark gray borders */
+    --ui-border-accented: #404040; /* lighter dark gray */
+
+    /* Nuxt UI Ring/Focus colors - Dark mode */
+    --ui-ring: #ffffff; /* white focus rings */
+
+    /* Nuxt UI Primary color - Dark mode */
+    --ui-primary: #ffffff; /* white primary color */
+    --ui-primary-50: #1a1a1a;
+    --ui-primary-100: #333333;
+    --ui-primary-500: #ffffff;
+    --ui-primary-600: #ffffff;
+
+    /* Standard color shades for Nuxt UI components - Dark mode */
+    --color-gray-50: #1a1a1a;
+    --color-gray-100: #262626;
+    --color-gray-200: #333333;
+    --color-gray-300: #404040;
+    --color-gray-400: #6b7280;
+    --color-gray-500: #9ca3af;
+    --color-gray-600: #d1d5db;
+    --color-gray-700: #e5e7eb;
+    --color-gray-800: #f3f4f6;
+    --color-gray-900: #f9fafb;
+}
+
+/* Global Nuxt UI component theming */
+body {
+    background-color: var(--ui-bg);
+    color: var(--ui-text);
+}
+
+/* Apply theme variables to all pages */
+.min-h-screen {
+    background-color: var(--ui-bg);
+    color: var(--ui-text);
+}
+
+/* Ensure text elements use theme colors */
+h1, h2, h3, h4, h5, h6, p, span, div {
+    color: inherit;
+}
+
+/* Don't override .bg-white globally - it's used for page backgrounds */
+
+.text-black {
+    color: var(--ui-text) !important;
+}
+
+.text-gray-600 {
+    color: var(--ui-text-muted) !important;
+}
+
+.text-gray-500 {
+    color: var(--ui-text-dimmed) !important;
+}
+
+.border-gray-200 {
+    border-color: var(--ui-border) !important;
+}
+
+/* Nuxt UI Card theming - Grey backgrounds only in dark mode */
+[data-theme="dark"] div[class*="rounded"][class*="ring"],
+[data-theme="dark"] div[class*="rounded"][class*="shadow"],
+[data-theme="dark"] div[class*="rounded"][class*="border"] {
+    background-color: #1a1a1a !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Nuxt UI Input theming */
+input {
+    background-color: var(--ui-bg) !important;
+    border-color: var(--ui-border) !important;
+    color: var(--ui-text) !important;
+}
+
+input::placeholder {
+    color: var(--ui-text-muted) !important;
+}
+
+/* Nuxt UI Button theming - black buttons with 75% opacity on light theme */
+button:not([class*="outline"]):not([class*="ghost"]) {
+    background-color: rgba(0, 0, 0, 0.75) !important;
+    color: white !important;
+}
+
+button:not([class*="outline"]):not([class*="ghost"]):hover:not(:disabled) {
+    background-color: rgba(0, 0, 0, 0.85) !important;
+}
+
+/* Dark theme - add white borders to buttons so they're visible on black background */
+[data-theme="dark"] button:not([class*="outline"]):not([class*="ghost"]) {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: white !important;
+}
+
+[data-theme="dark"] button:not([class*="outline"]):not([class*="ghost"]):hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Link hover states - only for text links */
+a:not([role="button"]):hover {
+    color: var(--ui-text-muted);
+}
+
+/* Divider backgrounds */
+.bg-white.px-2 {
+    background-color: var(--ui-bg) !important;
+}
