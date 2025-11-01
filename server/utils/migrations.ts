@@ -22,7 +22,7 @@ export class MigrationRunner {
   }
 
   private async loadMigrations(): Promise<Migration[]> {
-    const migrationsDir = join(process.cwd(), 'migrations')
+    const migrationsDir = join(process.cwd(), 'server', 'migrations')
 
     try {
       const files = await readdir(migrationsDir)
