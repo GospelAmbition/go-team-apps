@@ -76,6 +76,7 @@ export const useScreenRecorder = () => {
       isPreparingRecording.value = true
 
       let videoStream: MediaStream | null = null
+      let skipCountdown = false // Skip countdown for window/tab recordings
 
       // Get screen stream
       if (mode === 'screen' || mode === 'both') {
@@ -88,10 +89,16 @@ export const useScreenRecorder = () => {
         })
         videoStream = screenStream.value
 
-        // Check if user selected a tab in "both" mode
+        // Check if user selected a tab or window
         const videoTrack = screenStream.value.getVideoTracks()[0]
         if (videoTrack) {
           const settings = videoTrack.getSettings()
+
+          // Skip countdown for window and tab recordings since user can't see it
+          // (browser switches to the selected window/tab immediately)
+          if (settings.displaySurface === 'browser' || settings.displaySurface === 'window') {
+            skipCountdown = true
+          }
 
           // If user selected a tab in "both" mode, automatically fall back to screen-only
           // Canvas compositing doesn't work in background tabs, so we skip the webcam overlay
@@ -258,20 +265,23 @@ export const useScreenRecorder = () => {
         }
       }
 
-      // Preparation complete, now show countdown
+      // Preparation complete, now show countdown (unless recording window/tab)
       isPreparingRecording.value = false
 
       // Countdown before starting recording (3, 2, 1)
-      countdown.value = 3
-      await new Promise<void>((resolve) => {
-        const countdownInterval = setInterval(() => {
-          countdown.value--
-          if (countdown.value === 0) {
-            clearInterval(countdownInterval)
-            resolve()
-          }
-        }, 1000)
-      })
+      // Skip countdown for window/tab recordings since user can't see it anyway
+      if (!skipCountdown) {
+        countdown.value = 3
+        await new Promise<void>((resolve) => {
+          const countdownInterval = setInterval(() => {
+            countdown.value--
+            if (countdown.value === 0) {
+              clearInterval(countdownInterval)
+              resolve()
+            }
+          }, 1000)
+        })
+      }
 
       // Start recording
       mediaRecorder.value.start(1000)
