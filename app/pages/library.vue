@@ -532,6 +532,17 @@ useHead({
   flex: 1;
 }
 
+.video-actions :deep(button),
+.video-actions :deep(a) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-actions :deep(svg) {
+  margin: 0 auto;
+}
+
 /* Library Footer */
 .library-footer {
   text-align: center;
