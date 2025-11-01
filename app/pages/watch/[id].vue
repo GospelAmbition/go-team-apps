@@ -2,7 +2,7 @@
   <div class="watch-page">
     <!-- Header -->
     <div class="header">
-      <NuxtLink to="/record" class="logo">Loomsly</NuxtLink>
+      <NuxtLink to="/dashboard" class="logo">Loomsly</NuxtLink>
       <div class="header-actions">
         <NuxtLink v-if="user" to="/library" class="library-link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">

@@ -72,38 +72,6 @@
           </div>
         </NuxtLink>
       </div>
-
-      <div class="dashboard-grid">
-        <UCard>
-          <template #header>
-            <h3>Account Info</h3>
-          </template>
-          <div class="space-y-2">
-            <p><strong>Name:</strong> {{ user?.display_name || 'Not set' }}</p>
-            <p><strong>Email:</strong> {{ user?.email }}</p>
-            <p><strong>Status:</strong> {{ user?.verified ? 'Verified' : 'Unverified' }}</p>
-            <p v-if="user?.superadmin"><strong>Role:</strong> Super Admin</p>
-          </div>
-        </UCard>
-
-        <UCard>
-          <template #header>
-            <h3>Quick Actions</h3>
-          </template>
-          <div class="space-y-3">
-            <UButton to="/profile" block>View Profile</UButton>
-            <UButton block variant="outline">Settings</UButton>
-            <UButton block variant="outline">Help</UButton>
-          </div>
-        </UCard>
-
-        <UCard>
-          <template #header>
-            <h3>Recent Activity</h3>
-          </template>
-          <p>No recent activity to display.</p>
-        </UCard>
-      </div>
     </main>
   </div>
 </template>
@@ -304,12 +272,6 @@ onMounted(() => {
   transform: translateX(4px);
 }
 
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-}
-
 /* Nuxt UI Card overrides for dashboard */
 :deep([class*="Card"]) {
   border-color: var(--border) !important;
@@ -378,10 +340,6 @@ onMounted(() => {
 
   .action-content h2 {
     font-size: 1.25rem;
-  }
-
-  .dashboard-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -2,7 +2,7 @@
   <div class="recorder-page">
     <!-- Header -->
     <div class="header">
-      <h1 class="logo">Loomsly</h1>
+      <NuxtLink to="/dashboard" class="logo">Loomsly</NuxtLink>
       <div class="header-actions">
         <NuxtLink to="/library" class="library-link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
@@ -140,28 +140,36 @@
                   :class="['position-btn', { 'position-btn-active': webcamPosition === 'bottom-left' }]"
                   title="Bottom Left"
                 >
-                  <div class="position-indicator bl"></div>
+                  <div class="position-indicator bl">
+                    <video v-if="webcamStream" ref="webcamVideoRef" autoplay muted playsinline class="webcam-mini"></video>
+                  </div>
                 </button>
                 <button
                   @click="webcamPosition = 'bottom-right'"
                   :class="['position-btn', { 'position-btn-active': webcamPosition === 'bottom-right' }]"
                   title="Bottom Right"
                 >
-                  <div class="position-indicator br"></div>
+                  <div class="position-indicator br">
+                    <video v-if="webcamStream" autoplay muted playsinline class="webcam-mini"></video>
+                  </div>
                 </button>
                 <button
                   @click="webcamPosition = 'top-left'"
                   :class="['position-btn', { 'position-btn-active': webcamPosition === 'top-left' }]"
                   title="Top Left"
                 >
-                  <div class="position-indicator tl"></div>
+                  <div class="position-indicator tl">
+                    <video v-if="webcamStream" autoplay muted playsinline class="webcam-mini"></video>
+                  </div>
                 </button>
                 <button
                   @click="webcamPosition = 'top-right'"
                   :class="['position-btn', { 'position-btn-active': webcamPosition === 'top-right' }]"
                   title="Top Right"
                 >
-                  <div class="position-indicator tr"></div>
+                  <div class="position-indicator tr">
+                    <video v-if="webcamStream" autoplay muted playsinline class="webcam-mini"></video>
+                  </div>
                 </button>
               </div>
             </div>
@@ -233,6 +241,20 @@
             <span v-else-if="recordingMode === 'webcam'">Your webcam is being recorded.</span>
             <span v-else>Your screen and webcam are being recorded.</span>
           </p>
+
+          <!-- Webcam Preview -->
+          <div
+            v-if="(recordingMode === 'both' || recordingMode === 'webcam') && showWebcam && webcamStream"
+            class="webcam-preview-container"
+          >
+            <video
+              ref="webcamVideoRef"
+              autoplay
+              muted
+              playsinline
+              :class="['webcam-preview', `position-${webcamPosition}`, `size-${webcamSize}`]"
+            ></video>
+          </div>
 
           <!-- Webcam Toggle for 'both' mode -->
           <div v-if="recordingMode === 'both'" class="webcam-controls">
@@ -442,6 +464,7 @@ const {
   includeMicrophone,
   countdown,
   isPreparingRecording,
+  webcamStream,
   startRecording,
   stopRecording,
   pauseRecording,
@@ -452,8 +475,61 @@ const {
   resetRecording,
 } = useScreenRecorder()
 
+const webcamVideoRef = ref<HTMLVideoElement | null>(null)
+
+// Setup webcam video element when stream is available
+watchEffect(() => {
+  if (webcamStream.value) {
+    // Set stream for all video elements that show the webcam
+    const videoElements = document.querySelectorAll<HTMLVideoElement>('.webcam-mini, .webcam-preview')
+    videoElements.forEach(video => {
+      if (video && !video.srcObject) {
+        video.srcObject = webcamStream.value
+        video.play().catch(err => {
+          console.error('Error playing webcam video:', err)
+        })
+      }
+    })
+
+    // Also set for the main recording preview
+    if (webcamVideoRef.value && !webcamVideoRef.value.srcObject) {
+      webcamVideoRef.value.srcObject = webcamStream.value
+      webcamVideoRef.value.play().catch(err => {
+        console.error('Error playing webcam video:', err)
+      })
+    }
+  }
+})
+
 const copied = ref(false)
 const selectedMode = ref<RecordingMode>('both')
+
+// Start webcam preview when 'both' mode is selected
+watch(selectedMode, async (mode) => {
+  if (mode === 'both' || mode === 'webcam') {
+    // Request webcam access for preview
+    try {
+      if (!webcamStream.value) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        })
+        webcamStream.value = stream
+      }
+    } catch (err) {
+      console.error('Error accessing webcam for preview:', err)
+    }
+  } else {
+    // Stop webcam stream when not in 'both' or 'webcam' mode
+    if (webcamStream.value) {
+      webcamStream.value.getTracks().forEach(track => track.stop())
+      webcamStream.value = null
+    }
+  }
+}, { immediate: true })
 
 const copyShareLink = async () => {
   if (!shareableLink.value) return
@@ -477,6 +553,13 @@ const selectShareLink = (event: Event) => {
 const handleStartRecording = () => {
   startRecording(selectedMode.value)
 }
+
+// Cleanup webcam stream on unmount
+onUnmounted(() => {
+  if (webcamStream.value && !isRecording.value) {
+    webcamStream.value.getTracks().forEach(track => track.stop())
+  }
+})
 </script>
 
 <style scoped>
@@ -497,7 +580,8 @@ const handleStartRecording = () => {
 .logo {
   font-size: 1.5rem;
   font-weight: 700;
-  margin: 0;
+  text-decoration: none;
+  color: var(--ui-text);
 }
 
 .header-actions {
@@ -923,6 +1007,7 @@ const handleStartRecording = () => {
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
+  overflow: visible;
 }
 
 .position-btn:hover {
@@ -943,9 +1028,18 @@ const handleStartRecording = () => {
   position: absolute;
   width: 25%;
   height: 25%;
-  background: var(--ui-text);
+  background: rgba(0, 0, 0, 0.3);
   border-radius: 2px;
-  opacity: 0.6;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.webcam-mini {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* Mirror the preview */
 }
 
 .position-indicator.tl {
@@ -969,7 +1063,8 @@ const handleStartRecording = () => {
 }
 
 .position-btn-active .position-indicator {
-  opacity: 1;
+  border-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 /* Size Buttons - using NuxtUI ButtonGroup now */
@@ -994,6 +1089,66 @@ const handleStartRecording = () => {
 /* Webcam Controls */
 .webcam-controls {
   margin-bottom: 1.5rem;
+}
+
+/* Webcam Preview */
+.webcam-preview-container {
+  position: relative;
+  max-width: 800px;
+  margin: 2rem auto;
+  aspect-ratio: 16 / 9;
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: 0.5rem;
+  overflow: visible;
+}
+
+.webcam-preview {
+  position: absolute;
+  border-radius: 0.5rem;
+  border: 3px solid var(--ui-bg-elevated);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  object-fit: cover;
+  background: #000;
+  z-index: 10;
+  transform: scaleX(-1); /* Mirror the webcam */
+}
+
+/* Position classes */
+.webcam-preview.position-top-left {
+  top: 20px;
+  left: 20px;
+}
+
+.webcam-preview.position-top-right {
+  top: 20px;
+  right: 20px;
+}
+
+.webcam-preview.position-bottom-left {
+  bottom: 20px;
+  left: 20px;
+}
+
+.webcam-preview.position-bottom-right {
+  bottom: 20px;
+  right: 20px;
+}
+
+/* Size classes */
+.webcam-preview.size-small {
+  width: 15%;
+  aspect-ratio: 4 / 3;
+}
+
+.webcam-preview.size-medium {
+  width: 25%;
+  aspect-ratio: 4 / 3;
+}
+
+.webcam-preview.size-large {
+  width: 35%;
+  aspect-ratio: 4 / 3;
 }
 
 /* Responsive */
@@ -1032,6 +1187,49 @@ const handleStartRecording = () => {
 
   .mode-selection {
     grid-template-columns: 1fr;
+  }
+
+  /* Webcam preview adjustments for mobile */
+  .webcam-preview.size-small {
+    width: 25%;
+  }
+
+  .webcam-preview.size-medium {
+    width: 35%;
+  }
+
+  .webcam-preview.size-large {
+    width: 45%;
+  }
+
+  .webcam-preview.position-top-left,
+  .webcam-preview.position-top-right,
+  .webcam-preview.position-bottom-left,
+  .webcam-preview.position-bottom-right {
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+  }
+
+  .webcam-preview.position-top-left {
+    top: 10px;
+    left: 10px;
+  }
+
+  .webcam-preview.position-top-right {
+    top: 10px;
+    right: 10px;
+  }
+
+  .webcam-preview.position-bottom-left {
+    bottom: 10px;
+    left: 10px;
+  }
+
+  .webcam-preview.position-bottom-right {
+    bottom: 10px;
+    right: 10px;
   }
 }
 </style>

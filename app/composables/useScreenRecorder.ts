@@ -534,6 +534,9 @@ export const useScreenRecorder = () => {
     showWebcam,
     includeMicrophone,
 
+    // Streams
+    webcamStream,
+
     // Methods
     startRecording,
     stopRecording,
