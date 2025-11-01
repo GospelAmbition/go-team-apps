@@ -17,7 +17,7 @@ const bucketName = process.env.S3_BUCKET_NAME || ''
 export const generateUploadUrl = async (key: string, contentType: string = 'video/webm') => {
   const command = new PutObjectCommand({
     Bucket: bucketName,
-    Key: `loomsly/${key}`,
+    Key: `videos/${key}`,
     ContentType: contentType,
   })
 
@@ -29,7 +29,7 @@ export const generateUploadUrl = async (key: string, contentType: string = 'vide
 export const generateDownloadUrl = async (key: string) => {
   const command = new GetObjectCommand({
     Bucket: bucketName,
-    Key: `loomsly/${key}`,
+    Key: `videos/${key}`,
   })
 
   // Generate pre-signed URL valid for 24 hours
@@ -40,5 +40,5 @@ export const generateDownloadUrl = async (key: string) => {
 export const getPublicUrl = (key: string) => {
   // For public access (if bucket is configured for public read)
   const endpoint = process.env.S3_ENDPOINT?.replace('https://', '') || ''
-  return `https://${endpoint}/${bucketName}/loomsly/${key}`
+  return `https://${endpoint}/${bucketName}/videos/${key}`
 }

@@ -2,7 +2,7 @@
   <div class="recorder-page">
     <!-- Header -->
     <div class="header">
-      <NuxtLink to="/dashboard" class="logo">Loomsly</NuxtLink>
+      <NuxtLink to="/dashboard" class="logo">Go Apps</NuxtLink>
       <div class="header-actions">
         <NuxtLink to="/library" class="library-link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">

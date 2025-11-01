@@ -2,7 +2,7 @@
   <div class="library-page">
     <!-- Header -->
     <div class="header">
-      <NuxtLink to="/dashboard" class="logo">Loomsly</NuxtLink>
+      <NuxtLink to="/dashboard" class="logo">Go Apps</NuxtLink>
       <button class="theme-toggle-btn outline" @click="toggleTheme" :data-theme="theme" title="Toggle theme">
         <svg v-if="theme === 'light'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -71,18 +71,41 @@
           </div>
 
           <div class="video-info">
+            <div class="video-title-section">
+              <input
+                v-if="editingVideoId === video.id"
+                v-model="editingTitle"
+                @blur="saveTitle(video.id)"
+                @keyup.enter="saveTitle(video.id)"
+                @keyup.esc="cancelEdit"
+                class="video-title-input"
+                ref="titleInput"
+                autofocus
+              />
+              <h3 v-else class="video-title">{{ video.title }}</h3>
+              <button @click="startEditTitle(video)" class="edit-title-btn" :title="editingVideoId === video.id ? 'Save' : 'Edit title'">
+                <svg v-if="editingVideoId === video.id" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+            </div>
+
             <div class="video-meta">
               <span class="video-date">{{ formatDate(video.createdAt) }}</span>
               <span class="video-duration">{{ formatDuration(video.duration) }}</span>
             </div>
 
             <div class="video-actions">
-              <NuxtLink :to="`/watch/${video.shareToken}`" class="action-btn" title="Watch">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <UButton :to="`/watch/${video.shareToken}`" size="sm" title="Watch" class="flex-1" square>
+                <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
                   <polygon points="5 3 19 12 5 21 5 3"></polygon>
                 </svg>
-              </NuxtLink>
-              <button @click="copyLink(video)" class="action-btn" :title="copied === video.id ? 'Copied!' : 'Copy Link'">
+              </UButton>
+              <UButton @click="copyLink(video)" variant="outline" size="sm" :title="copied === video.id ? 'Copied!' : 'Copy Link'" class="flex-1" square>
                 <svg v-if="copied !== video.id" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -90,13 +113,13 @@
                 <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-              </button>
-              <button @click="deleteVideo(video.id)" class="action-btn action-btn-danger" title="Delete">
+              </UButton>
+              <UButton @click="deleteVideo(video.id)" color="red" variant="outline" size="sm" title="Delete" class="flex-1" square>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 </svg>
-              </button>
+              </UButton>
             </div>
           </div>
         </div>
@@ -116,6 +139,8 @@ const videos = ref<any[]>([])
 const copied = ref<string | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+const editingVideoId = ref<string | null>(null)
+const editingTitle = ref('')
 
 // Load videos from API
 const loadVideos = async () => {
@@ -196,6 +221,53 @@ const formatDuration = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
+// Edit title
+const startEditTitle = (video: any) => {
+  if (editingVideoId.value === video.id) {
+    // If already editing, save it
+    saveTitle(video.id)
+  } else {
+    // Start editing
+    editingVideoId.value = video.id
+    editingTitle.value = video.title
+  }
+}
+
+const saveTitle = async (videoId: string) => {
+  if (!editingTitle.value || editingTitle.value.trim() === '') {
+    cancelEdit()
+    return
+  }
+
+  try {
+    const response = await $fetch(`/api/videos/${videoId}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      body: {
+        title: editingTitle.value.trim()
+      }
+    })
+
+    // Update the video in the local list
+    const video = videos.value.find(v => v.id === videoId)
+    if (video) {
+      video.title = editingTitle.value.trim()
+    }
+
+    editingVideoId.value = null
+    editingTitle.value = ''
+  } catch (err: any) {
+    console.error('Error updating title:', err)
+    alert(err.data?.message || 'Failed to update title')
+    cancelEdit()
+  }
+}
+
+const cancelEdit = () => {
+  editingVideoId.value = null
+  editingTitle.value = ''
+}
+
 // Load videos on mount
 onMounted(() => {
   loadVideos()
@@ -203,7 +275,7 @@ onMounted(() => {
 
 // Update page title
 useHead({
-  title: 'Your Recordings - Loomsly',
+  title: 'Your Recordings - Go Apps',
 })
 </script>
 
@@ -379,6 +451,64 @@ useHead({
   padding: 1rem;
 }
 
+.video-title-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.video-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ui-text);
+}
+
+.video-title-input {
+  flex: 1;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--ui-text);
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  border-radius: 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.video-title-input:focus {
+  border-color: var(--ui-text);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .video-title-input:focus {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+.edit-title-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  background: transparent;
+  border: none;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.edit-title-btn:hover {
+  color: var(--ui-text);
+  background: var(--ui-bg);
+}
+
 .video-meta {
   display: flex;
   justify-content: space-between;
@@ -398,29 +528,8 @@ useHead({
   gap: 0.5rem;
 }
 
-.action-btn {
+.video-actions .flex-1 {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem;
-  border: 1px solid var(--ui-border);
-  background: transparent;
-  color: var(--ui-text);
-  border-radius: 0.25rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  background: var(--ui-bg);
-  border-color: var(--ui-text);
-}
-
-.action-btn-danger:hover {
-  background: #dc2626;
-  border-color: #dc2626;
-  color: white;
 }
 
 /* Library Footer */

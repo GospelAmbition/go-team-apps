@@ -402,7 +402,7 @@ export const useScreenRecorder = () => {
       // Create FormData for upload with metadata
       const formData = new FormData()
       formData.append('video', blob, `recording-${Date.now()}.webm`)
-      formData.append('title', `Recording ${new Date().toLocaleString()}`)
+      // Don't send title - let server generate default (e.g., "Nov 1, 2025 10:30am")
       formData.append('duration', recordingTime.value.toString())
       if (thumbnailBlob) {
         formData.append('thumbnail', thumbnailBlob, 'thumbnail.jpg')

@@ -1,5 +1,6 @@
 import sql, { ensureInitialized } from '../../utils/database'
 import { generateDownloadUrl } from '../../utils/s3'
+import { getAuthUser } from '../../utils/auth'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -19,6 +20,7 @@ export default defineEventHandler(async (event) => {
     const result = await sql`
       SELECT
         id,
+        user_id,
         title,
         s3_key,
         duration,
@@ -57,12 +59,16 @@ export default defineEventHandler(async (event) => {
       WHERE id = ${video.id}
     `
 
-    // Extract just the filename from s3_key (remove "loomsly/" prefix)
+    // Extract just the filename from s3_key (remove "videos/" prefix)
     const s3KeyParts = video.s3_key.split('/')
     const filename = s3KeyParts[s3KeyParts.length - 1]
 
     // Generate pre-signed download URL
     const videoUrl = await generateDownloadUrl(filename)
+
+    // Check if current user owns this video
+    const currentUser = getAuthUser(event)
+    const isOwner = currentUser?.userId === video.user_id
 
     return {
       success: true,
@@ -70,6 +76,7 @@ export default defineEventHandler(async (event) => {
       title: video.title,
       duration: video.duration,
       videoUrl,
+      isOwner,
     }
   } catch (error: any) {
     console.error('Error getting video URL:', error)

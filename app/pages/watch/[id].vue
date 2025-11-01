@@ -2,7 +2,7 @@
   <div class="watch-page">
     <!-- Header -->
     <div class="header">
-      <NuxtLink to="/dashboard" class="logo">Loomsly</NuxtLink>
+      <NuxtLink to="/dashboard" class="logo">Go Apps</NuxtLink>
       <div class="header-actions">
         <NuxtLink v-if="user" to="/library" class="library-link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
@@ -54,6 +54,28 @@
 
       <!-- Video Player -->
       <div v-else-if="videoUrl" class="player-view">
+        <div class="video-title-section">
+          <input
+            v-if="isEditing"
+            v-model="editTitle"
+            @blur="saveTitle"
+            @keyup.enter="saveTitle"
+            @keyup.esc="cancelEdit"
+            class="video-title-input"
+            autofocus
+          />
+          <h1 v-else class="video-title">{{ videoTitle }}</h1>
+          <button v-if="isOwner" @click="startEdit" class="edit-title-btn" :title="isEditing ? 'Save' : 'Edit title'">
+            <svg v-if="isEditing" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+        </div>
+
         <div class="video-container">
           <video
             ref="videoPlayer"
@@ -82,6 +104,11 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const videoUrl = ref<string | null>(null)
 const videoPlayer = ref<HTMLVideoElement | null>(null)
+const videoTitle = ref<string>('')
+const isOwner = ref(false)
+const isEditing = ref(false)
+const editTitle = ref('')
+const videoDbId = ref<string>('')
 
 // Load video on mount
 onMounted(async () => {
@@ -96,6 +123,9 @@ onMounted(async () => {
     }
 
     videoUrl.value = response.videoUrl
+    videoTitle.value = response.title || 'Untitled Video'
+    isOwner.value = response.isOwner || false
+    videoDbId.value = response.videoId
   } catch (err: any) {
     console.error('Error loading video:', err)
     error.value = err.message || 'Failed to load video'
@@ -104,9 +134,49 @@ onMounted(async () => {
   }
 })
 
+// Edit title functions
+const startEdit = () => {
+  if (isEditing.value) {
+    saveTitle()
+  } else {
+    isEditing.value = true
+    editTitle.value = videoTitle.value
+  }
+}
+
+const saveTitle = async () => {
+  if (!editTitle.value || editTitle.value.trim() === '') {
+    cancelEdit()
+    return
+  }
+
+  try {
+    await $fetch(`/api/videos/${videoDbId.value}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      body: {
+        title: editTitle.value.trim()
+      }
+    })
+
+    videoTitle.value = editTitle.value.trim()
+    isEditing.value = false
+    editTitle.value = ''
+  } catch (err: any) {
+    console.error('Error updating title:', err)
+    alert(err.data?.message || 'Failed to update title')
+    cancelEdit()
+  }
+}
+
+const cancelEdit = () => {
+  isEditing.value = false
+  editTitle.value = ''
+}
+
 // Update page title
 useHead({
-  title: `Watch Video - Loomsly`,
+  title: `Watch Video - Go Apps`,
 })
 </script>
 
@@ -226,6 +296,62 @@ useHead({
   text-align: center;
 }
 
+.video-title-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.video-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ui-text);
+}
+
+.video-title-input {
+  flex: 1;
+  max-width: 600px;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--ui-text);
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  border-radius: 0.375rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  outline: none;
+  text-align: center;
+}
+
+.video-title-input:focus {
+  border-color: var(--ui-text);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .video-title-input:focus {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.edit-title-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  background: transparent;
+  border: none;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+.edit-title-btn:hover {
+  color: var(--ui-text);
+  background: var(--ui-bg-elevated);
+}
+
 .video-container {
   border-radius: 0.5rem;
   overflow: hidden;
@@ -236,6 +362,7 @@ useHead({
 
 .video-player {
   width: 100%;
+  min-height: 500px;
   max-height: 80vh;
   display: block;
 }
@@ -244,6 +371,20 @@ useHead({
 @media (max-width: 640px) {
   .watch-container {
     padding: 1rem;
+  }
+
+  .video-title {
+    font-size: 1.25rem;
+  }
+
+  .video-title-input {
+    font-size: 1.25rem;
+    max-width: 100%;
+  }
+
+  .video-title-section {
+    flex-direction: column;
+    gap: 0.5rem;
   }
 }
 </style>

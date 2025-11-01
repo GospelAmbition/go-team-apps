@@ -1,4 +1,4 @@
-# Loomsly - Requirements Document
+# Go Apps - Requirements Document
 
 ## Project Overview
 

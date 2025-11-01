@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
     const videoId = uuidv4()
     const shareToken = randomBytes(16).toString('hex')
     const extension = fileData.filename?.split('.').pop() || 'webm'
-    const key = `loomsly/${videoId}.${extension}`
+    const key = `videos/${videoId}.${extension}`
 
     // Configure S3 client
     const s3Client = new S3Client({
@@ -68,7 +68,7 @@ export default defineEventHandler(async (event) => {
     // Upload thumbnail to S3 if provided
     let thumbnailKey: string | null = null
     if (thumbnailData && thumbnailData.data) {
-      thumbnailKey = `loomsly/${videoId}-thumbnail.jpg`
+      thumbnailKey = `videos/${videoId}-thumbnail.jpg`
       const thumbnailCommand = new PutObjectCommand({
         Bucket: process.env.S3_BUCKET_NAME,
         Key: thumbnailKey,
@@ -88,8 +88,20 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Parse metadata
-    const title = metadata.title || 'Untitled Recording'
+    // Parse metadata - default title is current date and time (e.g., "Oct 24, 2025 10:30am")
+    const now = new Date()
+    const datePart = now.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })
+    const timePart = now.toLocaleString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).toLowerCase().replace(/\s/g, '')
+    const defaultTitle = `${datePart} ${timePart}`
+    const title = metadata.title || defaultTitle
     const duration = parseInt(metadata.duration || '0', 10)
     const fileSize = fileData.data.length
 
