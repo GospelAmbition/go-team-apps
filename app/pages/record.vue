@@ -123,9 +123,9 @@
             Start Recording
           </UButton>
           <p class="hint">
-            <span v-if="selectedMode === 'screen'">Record your entire screen, a specific window, or just a browser tab.</span>
-            <span v-else-if="selectedMode === 'webcam'">Record yourself using your webcam.</span>
-            <span v-else>Record your screen with your webcam in picture-in-picture mode.</span>
+            <span v-if="selectedMode === 'screen'">Record your entire screen, a specific window, or just a browser tab. Microphone audio will be included.</span>
+            <span v-else-if="selectedMode === 'webcam'">Record yourself using your webcam with audio.</span>
+            <span v-else>Record your screen with your webcam in picture-in-picture mode. Note: Webcam overlay will be disabled if you select a browser tab.</span>
           </p>
 
           <!-- Settings for Screen + Webcam mode -->
@@ -235,6 +235,16 @@
           </div>
 
           <div class="recording-time">{{ formattedTime }}</div>
+
+          <!-- Tab Recording Fallback Notification -->
+          <div v-if="tabRecordingFallback" class="tab-fallback-notice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>Tab recording: webcam overlay disabled, using microphone audio instead.</span>
+          </div>
 
           <p class="recording-message">
             <span v-if="recordingMode === 'screen'">Your screen is being recorded.</span>
@@ -464,6 +474,7 @@ const {
   includeMicrophone,
   countdown,
   isPreparingRecording,
+  tabRecordingFallback,
   webcamStream,
   startRecording,
   stopRecording,
@@ -684,6 +695,25 @@ onUnmounted(() => {
   justify-content: center;
   gap: 0.75rem;
   margin-bottom: 1.5rem;
+}
+
+.tab-fallback-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 1rem auto;
+  max-width: 500px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 0.5rem;
+  color: rgb(251, 191, 36);
+  font-size: 0.9rem;
+}
+
+.tab-fallback-notice svg {
+  flex-shrink: 0;
 }
 
 .recording-pulse {

@@ -21,6 +21,7 @@ export const useScreenRecorder = () => {
   const shareableLink = ref<string | null>(null)
   const countdown = ref(0)
   const isPreparingRecording = ref(false)
+  const tabRecordingFallback = ref(false)
 
   // Recording settings
   const recordingMode = ref<RecordingMode>('both')
@@ -34,6 +35,7 @@ export const useScreenRecorder = () => {
   let canvasCtx: CanvasRenderingContext2D | null = null
   let animationFrameId: number | null = null
   let recordingInterval: NodeJS.Timeout | null = null
+  let audioMixerContext: AudioContext | null = null
 
   // Check if browser supports screen recording
   const isSupported = computed(() => {
@@ -70,6 +72,7 @@ export const useScreenRecorder = () => {
       recordedVideoUrl.value = null
       recordingTime.value = 0
       recordingMode.value = mode
+      tabRecordingFallback.value = false
       isPreparingRecording.value = true
 
       let videoStream: MediaStream | null = null
@@ -84,6 +87,26 @@ export const useScreenRecorder = () => {
           audio: true, // System audio
         })
         videoStream = screenStream.value
+
+        // Check if user selected a tab in "both" mode
+        const videoTrack = screenStream.value.getVideoTracks()[0]
+        if (videoTrack) {
+          const settings = videoTrack.getSettings()
+
+          // If user selected a tab in "both" mode, automatically fall back to screen-only
+          // Canvas compositing doesn't work in background tabs, so we skip the webcam overlay
+          if (settings.displaySurface === 'browser' && mode === 'both') {
+            mode = 'screen'
+            recordingMode.value = 'screen'
+            tabRecordingFallback.value = true
+
+            // Stop the webcam preview stream if it was started
+            if (webcamStream.value) {
+              webcamStream.value.getTracks().forEach(track => track.stop())
+              webcamStream.value = null
+            }
+          }
+        }
       }
 
       // Get webcam stream
@@ -93,7 +116,7 @@ export const useScreenRecorder = () => {
             width: { ideal: 1280 },
             height: { ideal: 720 },
           },
-          audio: false, // Audio handled separately
+          audio: mode === 'webcam', // Capture audio directly for webcam-only mode
         })
 
         if (mode === 'webcam') {
@@ -102,14 +125,25 @@ export const useScreenRecorder = () => {
       }
 
       // Get microphone audio
-      if (includeMicrophone.value) {
+      // Always capture microphone in screen-only mode, optional in screen+webcam mode
+      // Also capture microphone when tab fallback occurs (tabRecordingFallback flag)
+      const shouldCaptureMicrophone = mode === 'screen' || (mode === 'both' && includeMicrophone.value) || tabRecordingFallback.value
+
+      if (shouldCaptureMicrophone) {
         try {
           audioStream.value = await navigator.mediaDevices.getUserMedia({
             audio: true,
             video: false,
           })
         } catch (err) {
-          console.warn('Could not access microphone:', err)
+          console.error('Could not access microphone:', err)
+          // For tab recording fallback, microphone is essential since tab audio may not work
+          if (tabRecordingFallback.value) {
+            error.value = 'Microphone access required for tab recording. Please allow microphone access and try again.'
+            stopAllTracks()
+            isPreparingRecording.value = false
+            return
+          }
         }
       }
 
@@ -124,24 +158,51 @@ export const useScreenRecorder = () => {
       }
 
       // Combine audio tracks
-      const audioTracks: MediaStreamTrack[] = []
+      // If we have multiple audio sources, mix them using Web Audio API
+      let finalAudioTrack: MediaStreamTrack | null = null
 
-      // Add system audio
-      if (screenStream.value) {
-        const systemAudio = screenStream.value.getAudioTracks()
-        audioTracks.push(...systemAudio)
+      const audioSources: MediaStream[] = []
+
+      // Collect all audio sources
+      if (screenStream.value && screenStream.value.getAudioTracks().length > 0) {
+        audioSources.push(screenStream.value)
       }
 
-      // Add microphone audio
-      if (audioStream.value) {
-        const micAudio = audioStream.value.getAudioTracks()
-        audioTracks.push(...micAudio)
+      if (audioStream.value && audioStream.value.getAudioTracks().length > 0) {
+        audioSources.push(audioStream.value)
       }
 
-      // Create final stream with video and all audio
+      if (mode === 'webcam' && webcamStream.value && webcamStream.value.getAudioTracks().length > 0) {
+        audioSources.push(webcamStream.value)
+      }
+
+      // Mix multiple audio sources using Web Audio API
+      if (audioSources.length > 1) {
+        try {
+          audioMixerContext = new AudioContext()
+          const destination = audioMixerContext.createMediaStreamDestination()
+
+          // Connect all audio sources to the destination
+          audioSources.forEach(source => {
+            const audioSource = audioMixerContext!.createMediaStreamSource(source)
+            audioSource.connect(destination)
+          })
+
+          finalAudioTrack = destination.stream.getAudioTracks()[0]
+        } catch (err) {
+          console.error('Failed to mix audio tracks:', err)
+          // Fallback to first audio track only
+          finalAudioTrack = audioSources[0].getAudioTracks()[0]
+        }
+      } else if (audioSources.length === 1) {
+        // Only one audio source, use it directly
+        finalAudioTrack = audioSources[0].getAudioTracks()[0]
+      }
+
+      // Create final stream with video and mixed audio
       const finalStream = new MediaStream([
         ...videoStream.getVideoTracks(),
-        ...audioTracks,
+        ...(finalAudioTrack ? [finalAudioTrack] : [])
       ])
 
       // Create MediaRecorder instance
@@ -175,6 +236,12 @@ export const useScreenRecorder = () => {
         if (animationFrameId) {
           cancelAnimationFrame(animationFrameId)
           animationFrameId = null
+        }
+
+        // Close audio mixer context
+        if (audioMixerContext) {
+          audioMixerContext.close()
+          audioMixerContext = null
         }
 
         // Stop all tracks
@@ -487,6 +554,7 @@ export const useScreenRecorder = () => {
     videoId.value = null
     shareToken.value = null
     shareableLink.value = null
+    tabRecordingFallback.value = false
   }
 
   // Format recording time as MM:SS
@@ -508,6 +576,9 @@ export const useScreenRecorder = () => {
     if (animationFrameId) {
       cancelAnimationFrame(animationFrameId)
     }
+    if (audioMixerContext) {
+      audioMixerContext.close()
+    }
   })
 
   return {
@@ -526,6 +597,7 @@ export const useScreenRecorder = () => {
     shareableLink,
     countdown,
     isPreparingRecording,
+    tabRecordingFallback,
 
     // Recording settings
     recordingMode,

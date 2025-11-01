@@ -1,6 +1,7 @@
 # CLAUDE.md
 
 - Use the NUXT UI components
+- We are Oct 2025
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
