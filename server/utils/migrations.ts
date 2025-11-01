@@ -1,7 +1,19 @@
 import type { Sql } from 'postgres'
-import { readdir } from 'fs/promises'
-import { join } from 'path'
 import type { Migration } from './migration-interface'
+
+// Statically import all migrations so they're bundled in production
+import Migration001 from '#server/migrations/001_create_initial_tables.js'
+import Migration002 from '#server/migrations/002_add_email_change_fields.js'
+import Migration003 from '#server/migrations/003_create_password_reset_table.js'
+import Migration004 from '#server/migrations/004_create_videos_table.js'
+
+// Registry of all migrations
+const MIGRATION_CLASSES = [
+  Migration001,
+  Migration002,
+  Migration003,
+  Migration004,
+]
 
 export class MigrationRunner {
   private sql: Sql
@@ -22,59 +34,24 @@ export class MigrationRunner {
   }
 
   private async loadMigrations(): Promise<Migration[]> {
-    const migrationsDir = join(process.cwd(), 'server', 'migrations')
-
     try {
-      const files = await readdir(migrationsDir)
-      const migrationFiles = files
-        .filter(file => file.endsWith('.ts') || file.endsWith('.js'))
-        .sort() // Sort alphabetically to ensure order
-
       const migrations: Migration[] = []
 
-      for (const file of migrationFiles) {
-        // Extract migration number from filename (e.g., "001_initial.ts" -> 1)
-        const match = file.match(/^(\d+)_(.+)\.(ts|js)$/)
-        if (!match) {
-          console.warn(`Skipping invalid migration file: ${file}`)
-          continue
-        }
-
-        const id = parseInt(match[1]!, 10)
-        const filePath = join(migrationsDir, file)
-
+      for (const MigrationClass of MIGRATION_CLASSES) {
         try {
-          // Dynamically import the migration module
-          // Use absolute file URL for proper module resolution
-          const absolutePath = filePath.replace(/\\/g, '/')
-          const fileUrl = `file://${absolutePath}`
-          const migrationModule = await import(fileUrl)
-          const MigrationClass = migrationModule.default
-
-          if (!MigrationClass) {
-            console.warn(`Migration file ${file} does not export a default class`)
-            continue
-          }
-
           const migrationInstance = new MigrationClass() as Migration
-
-          if (migrationInstance.id !== id) {
-            console.warn(`Migration file ${file} has mismatched ID: expected ${id}, got ${migrationInstance.id}`)
-            continue
-          }
-
           migrations.push(migrationInstance)
         }
         catch (error) {
-          console.error(`Failed to load migration ${file}:`, error)
+          console.error(`Failed to instantiate migration:`, error)
           continue
         }
       }
 
       return migrations.sort((a, b) => a.id - b.id)
     }
-    catch {
-      console.warn('Migrations directory not found or empty, skipping migrations')
+    catch (error) {
+      console.warn('Failed to load migrations:', error)
       return []
     }
   }
