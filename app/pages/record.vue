@@ -236,16 +236,6 @@
 
           <div class="recording-time">{{ formattedTime }}</div>
 
-          <!-- Tab Recording Fallback Notification -->
-          <div v-if="tabRecordingFallback" class="tab-fallback-notice">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-            <span>Tab recording: webcam overlay disabled, using microphone audio instead.</span>
-          </div>
-
           <p class="recording-message">
             <span v-if="recordingMode === 'screen'">Your screen is being recorded.</span>
             <span v-else-if="recordingMode === 'webcam'">Your webcam is being recorded.</span>
@@ -266,8 +256,8 @@
             ></video>
           </div>
 
-          <!-- Webcam Toggle for 'both' mode -->
-          <div v-if="recordingMode === 'both'" class="webcam-controls">
+          <!-- Webcam Toggle for 'both' mode (hidden when PiP is active for entire screen recording, shown for tab/window recording) -->
+          <div v-if="recordingMode === 'both' && (!isPipActive || displaySurfaceType !== 'monitor')" class="webcam-controls">
             <UButton @click="toggleWebcam" variant="outline">
               <template #leading>
                 <svg v-if="showWebcam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
@@ -475,6 +465,8 @@ const {
   countdown,
   isPreparingRecording,
   tabRecordingFallback,
+  isPipActive,
+  displaySurfaceType,
   webcamStream,
   startRecording,
   stopRecording,
@@ -713,6 +705,25 @@ onUnmounted(() => {
 }
 
 .tab-fallback-notice svg {
+  flex-shrink: 0;
+}
+
+.pip-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 1rem auto;
+  max-width: 600px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 0.5rem;
+  color: rgb(34, 197, 94);
+  font-size: 0.9rem;
+}
+
+.pip-notice svg {
   flex-shrink: 0;
 }
 

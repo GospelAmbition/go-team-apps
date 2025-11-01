@@ -22,6 +22,7 @@ export const useScreenRecorder = () => {
   const countdown = ref(0)
   const isPreparingRecording = ref(false)
   const tabRecordingFallback = ref(false)
+  const displaySurfaceType = ref<string | null>(null) // 'monitor', 'window', or 'browser'
 
   // Recording settings
   const recordingMode = ref<RecordingMode>('both')
@@ -36,6 +37,10 @@ export const useScreenRecorder = () => {
   let animationFrameId: number | null = null
   let recordingInterval: NodeJS.Timeout | null = null
   let audioMixerContext: AudioContext | null = null
+
+  // Picture-in-Picture support
+  let pipVideoElement: HTMLVideoElement | null = null
+  const isPipActive = ref(false)
 
   // Check if browser supports screen recording
   const isSupported = computed(() => {
@@ -73,6 +78,7 @@ export const useScreenRecorder = () => {
       recordingTime.value = 0
       recordingMode.value = mode
       tabRecordingFallback.value = false
+      displaySurfaceType.value = null
       isPreparingRecording.value = true
 
       let videoStream: MediaStream | null = null
@@ -94,24 +100,20 @@ export const useScreenRecorder = () => {
         if (videoTrack) {
           const settings = videoTrack.getSettings()
 
+          // Store the display surface type for later use
+          displaySurfaceType.value = settings.displaySurface as string
+
           // Skip countdown for window and tab recordings since user can't see it
           // (browser switches to the selected window/tab immediately)
           if (settings.displaySurface === 'browser' || settings.displaySurface === 'window') {
             skipCountdown = true
           }
 
-          // If user selected a tab in "both" mode, automatically fall back to screen-only
-          // Canvas compositing doesn't work in background tabs, so we skip the webcam overlay
+          // For tab recordings in "both" mode, we'll rely on Picture-in-Picture
+          // to keep canvas rendering active. No fallback needed with PiP!
           if (settings.displaySurface === 'browser' && mode === 'both') {
-            mode = 'screen'
-            recordingMode.value = 'screen'
             tabRecordingFallback.value = true
-
-            // Stop the webcam preview stream if it was started
-            if (webcamStream.value) {
-              webcamStream.value.getTracks().forEach(track => track.stop())
-              webcamStream.value = null
-            }
+            // Continue with both mode - PiP will handle the canvas rendering
           }
         }
       }
@@ -251,6 +253,16 @@ export const useScreenRecorder = () => {
           audioMixerContext = null
         }
 
+        // Exit Picture-in-Picture and cleanup
+        if (pipVideoElement) {
+          if (document.pictureInPictureElement === pipVideoElement) {
+            document.exitPictureInPicture().catch(err => console.log('PiP exit error:', err))
+          }
+          pipVideoElement.srcObject = null
+          pipVideoElement = null
+          isPipActive.value = false
+        }
+
         // Stop all tracks
         stopAllTracks()
       }
@@ -372,6 +384,45 @@ export const useScreenRecorder = () => {
 
     // Get stream from canvas
     const canvasStream = canvas.captureStream(30) // 30 FPS
+
+    // Enable Picture-in-Picture to keep canvas rendering active when tab is backgrounded
+    // Show only the webcam in PiP to avoid capturing the PiP window in the screen recording
+    try {
+      // Create a video element for PiP showing just the webcam
+      pipVideoElement = document.createElement('video')
+      pipVideoElement.srcObject = webcamStream.value // Use webcam stream instead of composite
+      pipVideoElement.muted = true
+      pipVideoElement.playsInline = true
+
+      // Start playing the video
+      await pipVideoElement.play()
+
+      // Request Picture-in-Picture
+      if (document.pictureInPictureEnabled && pipVideoElement.requestPictureInPicture) {
+        await pipVideoElement.requestPictureInPicture()
+        isPipActive.value = true
+
+        // Only hide webcam overlay for entire screen (monitor) recordings
+        // For tab/window recordings: keep webcam overlay since PiP won't be captured
+        const isEntireScreen = displaySurfaceType.value === 'monitor'
+        if (isEntireScreen) {
+          showWebcam.value = false
+        }
+
+        // Handle PiP exit - re-enable webcam overlay for screen recordings
+        pipVideoElement.addEventListener('leavepictureinpicture', () => {
+          isPipActive.value = false
+          if (isEntireScreen) {
+            showWebcam.value = true // Re-enable webcam overlay if PiP is closed
+          }
+          console.log('Picture-in-Picture exited')
+        })
+      }
+    } catch (pipError) {
+      console.warn('Picture-in-Picture not available:', pipError)
+      // PiP is optional, continue without it
+    }
+
     return canvasStream
   }
 
@@ -565,6 +616,7 @@ export const useScreenRecorder = () => {
     shareToken.value = null
     shareableLink.value = null
     tabRecordingFallback.value = false
+    displaySurfaceType.value = null
   }
 
   // Format recording time as MM:SS
@@ -589,6 +641,13 @@ export const useScreenRecorder = () => {
     if (audioMixerContext) {
       audioMixerContext.close()
     }
+    if (pipVideoElement) {
+      if (document.pictureInPictureElement === pipVideoElement) {
+        document.exitPictureInPicture().catch(err => console.log('PiP exit error:', err))
+      }
+      pipVideoElement.srcObject = null
+      pipVideoElement = null
+    }
   })
 
   return {
@@ -608,6 +667,8 @@ export const useScreenRecorder = () => {
     countdown,
     isPreparingRecording,
     tabRecordingFallback,
+    isPipActive,
+    displaySurfaceType,
 
     // Recording settings
     recordingMode,
