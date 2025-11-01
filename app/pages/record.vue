@@ -12,8 +12,21 @@
           </svg>
           Library
         </NuxtLink>
-        <button class="theme-toggle-btn" @click="toggleTheme" title="Toggle theme">
-          {{ theme === 'light' ? '🌙' : '☀️' }}
+        <button class="theme-toggle-btn outline" @click="toggleTheme" :data-theme="theme" title="Toggle theme">
+          <svg v-if="theme === 'light'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
         </button>
       </div>
     </div>
@@ -39,7 +52,7 @@
       <!-- Recording Interface -->
       <div v-else class="recorder-content">
         <!-- Not Recording - Show Start Button -->
-        <div v-if="!isRecording && !recordedVideoUrl" class="start-recording-view">
+        <div v-if="!isRecording && !recordedVideoUrl && countdown === 0 && !isPreparingRecording" class="start-recording-view">
           <div class="icon-container">
             <svg class="record-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
@@ -101,6 +114,20 @@
             </UButton>
           </div>
 
+          <UButton @click="handleStartRecording" size="xl" class="mt-4">
+            <template #leading>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                <circle cx="12" cy="12" r="10"></circle>
+              </svg>
+            </template>
+            Start Recording
+          </UButton>
+          <p class="hint">
+            <span v-if="selectedMode === 'screen'">Record your entire screen, a specific window, or just a browser tab.</span>
+            <span v-else-if="selectedMode === 'webcam'">Record yourself using your webcam.</span>
+            <span v-else>Record your screen with your webcam in picture-in-picture mode.</span>
+          </p>
+
           <!-- Settings for Screen + Webcam mode -->
           <div v-if="selectedMode === 'both'" class="recording-settings">
             <h3>Webcam Settings</h3>
@@ -141,7 +168,7 @@
 
             <div class="setting-group">
               <label>Webcam Size</label>
-              <UButtonGroup orientation="horizontal" class="w-full">
+              <UFieldGroup orientation="horizontal" class="w-full">
                 <UButton
                   @click="webcamSize = 'small'"
                   :variant="webcamSize === 'small' ? 'solid' : 'outline'"
@@ -163,7 +190,7 @@
                 >
                   Large
                 </UButton>
-              </UButtonGroup>
+              </UFieldGroup>
             </div>
 
             <div class="setting-group">
@@ -173,20 +200,23 @@
               </label>
             </div>
           </div>
+        </div>
 
-          <UButton @click="handleStartRecording" size="xl" class="mt-4">
-            <template #leading>
-              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                <circle cx="12" cy="12" r="10"></circle>
-              </svg>
-            </template>
-            Start Recording
-          </UButton>
-          <p class="hint">
-            <span v-if="selectedMode === 'screen'">Record your entire screen, a specific window, or just a browser tab.</span>
-            <span v-else-if="selectedMode === 'webcam'">Record yourself using your webcam.</span>
-            <span v-else>Record your screen with your webcam in picture-in-picture mode.</span>
+        <!-- Preparing Recording - Loading State -->
+        <div v-else-if="isPreparingRecording" class="loading-view">
+          <div class="spinner-container">
+            <div class="spinner"></div>
+          </div>
+          <h2>Preparing Recording...</h2>
+          <p class="description">
+            Setting up your streams and getting everything ready
           </p>
+        </div>
+
+        <!-- Countdown -->
+        <div v-else-if="countdown > 0" class="countdown-view">
+          <div class="countdown-number">{{ countdown }}</div>
+          <p class="countdown-text">Get ready...</p>
         </div>
 
         <!-- Recording In Progress -->
@@ -221,14 +251,28 @@
             </UButton>
           </div>
 
-          <UButton @click="stopRecording" color="red" size="xl">
-            <template #leading>
-              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                <rect x="6" y="6" width="12" height="12"></rect>
-              </svg>
-            </template>
-            Stop Recording
-          </UButton>
+          <div class="recording-controls">
+            <UButton @click="isPaused ? resumeRecording() : pauseRecording()" size="xl" variant="outline">
+              <template #leading>
+                <svg v-if="isPaused" viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                  <rect x="6" y="4" width="4" height="16"></rect>
+                  <rect x="14" y="4" width="4" height="16"></rect>
+                </svg>
+              </template>
+              {{ isPaused ? 'Resume' : 'Pause' }}
+            </UButton>
+            <UButton @click="stopRecording" color="red" size="xl">
+              <template #leading>
+                <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                  <rect x="6" y="6" width="12" height="12"></rect>
+                </svg>
+              </template>
+              Stop Recording
+            </UButton>
+          </div>
 
           <p class="hint">
             You can also stop recording by clicking "Stop sharing" in your browser's sharing indicator.
@@ -281,7 +325,7 @@
           </div>
 
           <div class="action-buttons">
-            <UButton :to="`/watch/${videoId}`">
+            <UButton :to="`/watch/${shareToken}`">
               <template #leading>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
                   <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -368,24 +412,40 @@
 <script setup lang="ts">
 import type { RecordingMode, WebcamPosition, WebcamSize } from '~/composables/useScreenRecorder'
 
+// Require authentication
+const { data: user } = await useFetch('/api/auth/me', {
+  credentials: 'include',
+})
+
+// Redirect to login if not authenticated
+if (!user.value) {
+  navigateTo('/login')
+}
+
 const { theme, toggleTheme } = useTheme()
 const {
   isSupported,
   isRecording,
+  isPaused,
   recordedVideoUrl,
   error,
   formattedTime,
   isUploading,
   uploadProgress,
   videoId,
+  shareToken,
   shareableLink,
   recordingMode,
   webcamPosition,
   webcamSize,
   showWebcam,
   includeMicrophone,
+  countdown,
+  isPreparingRecording,
   startRecording,
   stopRecording,
+  pauseRecording,
+  resumeRecording,
   toggleWebcam,
   uploadToS3,
   downloadRecording,
@@ -467,21 +527,12 @@ const handleStartRecording = () => {
 }
 
 .theme-toggle-btn {
-  background: var(--ui-bg-elevated);
-  border: 1px solid var(--ui-border);
-  color: var(--ui-text);
-  padding: 0.5rem;
-  border-radius: 0.25rem;
-  cursor: pointer;
-  font-size: 1.2rem;
-  transition: background 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.theme-toggle-btn:hover {
-  background: var(--ui-border);
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
 }
 
 .recorder-container {
@@ -588,6 +639,85 @@ const handleStartRecording = () => {
   font-size: 1.1rem;
   color: var(--ui-text-muted);
   margin-bottom: 2rem;
+}
+
+.recording-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Countdown View */
+.countdown-view {
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.countdown-number {
+  font-size: 8rem;
+  font-weight: 700;
+  color: var(--ui-text);
+  animation: countdownPulse 1s ease-in-out;
+  line-height: 1;
+}
+
+@keyframes countdownPulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.countdown-text {
+  font-size: 1.5rem;
+  color: var(--ui-text-muted);
+  margin-top: 2rem;
+}
+
+/* Loading View */
+.loading-view {
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.loading-view h2 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.spinner-container {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid var(--ui-border);
+  border-top-color: var(--ui-text);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Preview View */

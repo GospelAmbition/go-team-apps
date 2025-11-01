@@ -205,5 +205,5 @@ a:not([role="button"]):hover {
 
 /* Divider backgrounds */
 .bg-white.px-2 {
-    background-color: var(--ui-bg) !important;
+    background-color: var(--bg-secondary) !important;
 }

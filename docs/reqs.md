@@ -223,25 +223,22 @@ A web-based screen and webcam recording application that allows users to create,
 - Edit video titles
 - Delete recordings
 
+
 ### Phase 5: Enhanced Recording Features
 **Goal:** Improve recording experience
 
+- Users need to be logged in in order to record videos.
 - Pause/resume recording
 - Countdown before recording starts
-- Recording duration display
-- Audio level indicators
-- Preview before saving
-- Re-record option
-- Cancel recording
+
+### Phase 5.1
+- The library page needs to display thumbnails of the video.
 
 ### Phase 6: Advanced Sharing & Security
 **Goal:** Add sharing controls and security features
 
 - Copy link to clipboard
-- Password protection for videos
-- Expiration dates for share links
 - Private/public toggle
-- Revoke share links
 - View count tracking
 
 ### Phase 7: Video Player Enhancements

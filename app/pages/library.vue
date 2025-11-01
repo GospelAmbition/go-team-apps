@@ -3,8 +3,21 @@
     <!-- Header -->
     <div class="header">
       <NuxtLink to="/record" class="logo">Loomsly</NuxtLink>
-      <button class="theme-toggle-btn" @click="toggleTheme" title="Toggle theme">
-        {{ theme === 'light' ? '🌙' : '☀️' }}
+      <button class="theme-toggle-btn outline" @click="toggleTheme" :data-theme="theme" title="Toggle theme">
+        <svg v-if="theme === 'light'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
       </button>
     </div>
 
@@ -43,8 +56,9 @@
       <div v-else class="video-grid">
         <div v-for="video in videos" :key="video.id" class="video-card">
           <div class="video-thumbnail">
-            <NuxtLink :to="`/watch/${video.id}`" class="thumbnail-link">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <NuxtLink :to="`/watch/${video.shareToken}`" class="thumbnail-link">
+              <img v-if="video.thumbnailUrl" :src="video.thumbnailUrl" :alt="video.title" class="thumbnail-image" />
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="play-icon">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
             </NuxtLink>
@@ -57,7 +71,7 @@
             </div>
 
             <div class="video-actions">
-              <NuxtLink :to="`/watch/${video.id}`" class="action-btn" title="Watch">
+              <NuxtLink :to="`/watch/${video.shareToken}`" class="action-btn" title="Watch">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                   <polygon points="5 3 19 12 5 21 5 3"></polygon>
                 </svg>
@@ -94,36 +108,55 @@ const { theme, toggleTheme } = useTheme()
 
 const videos = ref<any[]>([])
 const copied = ref<string | null>(null)
+const loading = ref(true)
+const error = ref<string | null>(null)
 
-// Load videos from localStorage
-const loadVideos = () => {
+// Load videos from API
+const loadVideos = async () => {
   try {
-    const stored = localStorage.getItem('loomsly_videos')
-    videos.value = stored ? JSON.parse(stored) : []
-  } catch (err) {
+    loading.value = true
+    error.value = null
+
+    const response = await $fetch('/api/videos', {
+      method: 'GET',
+      credentials: 'include',
+    })
+
+    videos.value = response.videos || []
+  } catch (err: any) {
     console.error('Error loading videos:', err)
+    error.value = err.data?.message || 'Failed to load videos'
     videos.value = []
+  } finally {
+    loading.value = false
   }
 }
 
 // Delete video
-const deleteVideo = (id: string) => {
+const deleteVideo = async (id: string) => {
   if (!confirm('Are you sure you want to delete this recording?')) {
     return
   }
 
   try {
+    await $fetch(`/api/videos/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+
+    // Remove from local list
     videos.value = videos.value.filter(v => v.id !== id)
-    localStorage.setItem('loomsly_videos', JSON.stringify(videos.value))
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error deleting video:', err)
+    alert(err.data?.message || 'Failed to delete video')
   }
 }
 
 // Copy share link
 const copyLink = async (video: any) => {
   try {
-    await navigator.clipboard.writeText(video.shareLink)
+    const shareUrl = `${window.location.origin}/watch/${video.shareToken}`
+    await navigator.clipboard.writeText(shareUrl)
     copied.value = video.id
     setTimeout(() => {
       copied.value = null
@@ -191,21 +224,12 @@ useHead({
 }
 
 .theme-toggle-btn {
-  background: var(--ui-bg-elevated);
-  border: 1px solid var(--ui-border);
-  color: var(--ui-text);
-  padding: 0.5rem;
-  border-radius: 0.25rem;
-  cursor: pointer;
-  font-size: 1.2rem;
-  transition: background 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.theme-toggle-btn:hover {
-  background: var(--ui-border);
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
 }
 
 .library-container {
@@ -300,10 +324,21 @@ useHead({
   background: linear-gradient(135deg, var(--ui-border), var(--ui-bg-elevated));
 }
 
-.thumbnail-link svg {
+.thumbnail-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.play-icon {
   width: 48px;
   height: 48px;
   opacity: 0.5;
+  position: relative;
+  z-index: 1;
 }
 
 .video-info {

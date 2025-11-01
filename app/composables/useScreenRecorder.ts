@@ -6,6 +6,7 @@ export const useScreenRecorder = () => {
   const mediaRecorder = ref<MediaRecorder | null>(null)
   const recordedChunks = ref<Blob[]>([])
   const isRecording = ref(false)
+  const isPaused = ref(false)
   const recordedVideoUrl = ref<string | null>(null)
   const screenStream = ref<MediaStream | null>(null)
   const webcamStream = ref<MediaStream | null>(null)
@@ -16,7 +17,10 @@ export const useScreenRecorder = () => {
   const isUploading = ref(false)
   const uploadProgress = ref(0)
   const videoId = ref<string | null>(null)
+  const shareToken = ref<string | null>(null)
   const shareableLink = ref<string | null>(null)
+  const countdown = ref(0)
+  const isPreparingRecording = ref(false)
 
   // Recording settings
   const recordingMode = ref<RecordingMode>('both')
@@ -58,7 +62,7 @@ export const useScreenRecorder = () => {
     return positions[webcamPosition.value]
   }
 
-  // Start recording
+  // Start recording with countdown
   const startRecording = async (mode: RecordingMode = 'screen') => {
     try {
       error.value = null
@@ -66,6 +70,7 @@ export const useScreenRecorder = () => {
       recordedVideoUrl.value = null
       recordingTime.value = 0
       recordingMode.value = mode
+      isPreparingRecording.value = true
 
       let videoStream: MediaStream | null = null
 
@@ -186,18 +191,36 @@ export const useScreenRecorder = () => {
         }
       }
 
+      // Preparation complete, now show countdown
+      isPreparingRecording.value = false
+
+      // Countdown before starting recording (3, 2, 1)
+      countdown.value = 3
+      await new Promise<void>((resolve) => {
+        const countdownInterval = setInterval(() => {
+          countdown.value--
+          if (countdown.value === 0) {
+            clearInterval(countdownInterval)
+            resolve()
+          }
+        }, 1000)
+      })
+
       // Start recording
       mediaRecorder.value.start(1000)
       isRecording.value = true
 
       // Start recording timer
       recordingInterval = setInterval(() => {
-        recordingTime.value++
+        if (!isPaused.value) {
+          recordingTime.value++
+        }
       }, 1000)
     } catch (err: any) {
       console.error('Error starting recording:', err)
       error.value = err.message || 'Failed to start recording'
       isRecording.value = false
+      isPreparingRecording.value = false
       stopAllTracks()
     }
   }
@@ -302,9 +325,60 @@ export const useScreenRecorder = () => {
     }
   }
 
+  // Pause recording
+  const pauseRecording = () => {
+    if (mediaRecorder.value && isRecording.value && !isPaused.value && mediaRecorder.value.state === 'recording') {
+      mediaRecorder.value.pause()
+      isPaused.value = true
+    }
+  }
+
+  // Resume recording
+  const resumeRecording = () => {
+    if (mediaRecorder.value && isRecording.value && isPaused.value && mediaRecorder.value.state === 'paused') {
+      mediaRecorder.value.resume()
+      isPaused.value = false
+    }
+  }
+
   // Toggle webcam visibility
   const toggleWebcam = () => {
     showWebcam.value = !showWebcam.value
+  }
+
+  // Generate thumbnail from video
+  const generateThumbnail = async (videoUrl: string): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      try {
+        const video = document.createElement('video')
+        video.crossOrigin = 'anonymous'
+        video.src = videoUrl
+        video.currentTime = 1 // Capture frame at 1 second
+
+        video.addEventListener('loadeddata', () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            canvas.toBlob((blob) => {
+              resolve(blob)
+            }, 'image/jpeg', 0.8)
+          } else {
+            resolve(null)
+          }
+        })
+
+        video.addEventListener('error', () => {
+          resolve(null)
+        })
+      } catch (err) {
+        console.error('Error generating thumbnail:', err)
+        resolve(null)
+      }
+    })
   }
 
   // Upload to S3 via server
@@ -322,9 +396,17 @@ export const useScreenRecorder = () => {
       // Create blob from recorded chunks
       const blob = new Blob(recordedChunks.value, { type: 'video/webm' })
 
-      // Create FormData for upload
+      // Generate thumbnail
+      const thumbnailBlob = await generateThumbnail(recordedVideoUrl.value)
+
+      // Create FormData for upload with metadata
       const formData = new FormData()
-      formData.append('file', blob, `recording-${Date.now()}.webm`)
+      formData.append('video', blob, `recording-${Date.now()}.webm`)
+      formData.append('title', `Recording ${new Date().toLocaleString()}`)
+      formData.append('duration', recordingTime.value.toString())
+      if (thumbnailBlob) {
+        formData.append('thumbnail', thumbnailBlob, 'thumbnail.jpg')
+      }
 
       // Upload via server-side API
       const xhr = new XMLHttpRequest()
@@ -332,7 +414,9 @@ export const useScreenRecorder = () => {
       return new Promise<boolean>((resolve, reject) => {
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
-            uploadProgress.value = Math.round((e.loaded / e.total) * 100)
+            // Cap at 95% to account for server-side processing
+            const progress = Math.round((e.loaded / e.total) * 95)
+            uploadProgress.value = Math.min(progress, 95)
           }
         })
 
@@ -340,31 +424,24 @@ export const useScreenRecorder = () => {
           if (xhr.status === 200) {
             const response = JSON.parse(xhr.responseText)
 
-            if (response && response.videoId) {
+            if (response && response.videoId && response.shareToken) {
               videoId.value = response.videoId
-              isUploading.value = false
+              shareToken.value = response.shareToken
+              // Set to 100% now that server has finished processing
               uploadProgress.value = 100
+              isUploading.value = false
 
-              // Generate shareable link
+              // Generate shareable link using share token
               const siteUrl = window.location.origin
-              shareableLink.value = `${siteUrl}/watch/${videoId.value}`
-
-              // Save to localStorage video library
-              saveToLibrary({
-                id: videoId.value!,
-                key: response.key,
-                createdAt: new Date().toISOString(),
-                duration: recordingTime.value,
-                shareLink: shareableLink.value,
-                mode: recordingMode.value,
-              })
+              shareableLink.value = `${siteUrl}/watch/${response.shareToken}`
 
               resolve(true)
             } else {
               reject(new Error('Invalid response from server'))
             }
           } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`))
+            const errorResponse = xhr.responseText ? JSON.parse(xhr.responseText) : {}
+            reject(new Error(errorResponse.message || `Upload failed with status ${xhr.status}`))
           }
         })
 
@@ -373,6 +450,7 @@ export const useScreenRecorder = () => {
         })
 
         xhr.open('POST', '/api/videos/upload')
+        xhr.withCredentials = true // Send cookies for authentication
         xhr.send(formData)
       })
     } catch (err: any) {
@@ -380,17 +458,6 @@ export const useScreenRecorder = () => {
       error.value = err.message || 'Failed to upload video'
       isUploading.value = false
       return false
-    }
-  }
-
-  // Save video to localStorage library
-  const saveToLibrary = (video: any) => {
-    try {
-      const existingVideos = JSON.parse(localStorage.getItem('loomsly_videos') || '[]')
-      existingVideos.unshift(video)
-      localStorage.setItem('loomsly_videos', JSON.stringify(existingVideos))
-    } catch (err) {
-      console.error('Error saving to library:', err)
     }
   }
 
@@ -418,6 +485,7 @@ export const useScreenRecorder = () => {
     isUploading.value = false
     uploadProgress.value = 0
     videoId.value = null
+    shareToken.value = null
     shareableLink.value = null
   }
 
@@ -446,6 +514,7 @@ export const useScreenRecorder = () => {
     // State
     isSupported,
     isRecording,
+    isPaused,
     recordedVideoUrl,
     error,
     recordingTime,
@@ -453,7 +522,10 @@ export const useScreenRecorder = () => {
     isUploading,
     uploadProgress,
     videoId,
+    shareToken,
     shareableLink,
+    countdown,
+    isPreparingRecording,
 
     // Recording settings
     recordingMode,
@@ -465,6 +537,8 @@ export const useScreenRecorder = () => {
     // Methods
     startRecording,
     stopRecording,
+    pauseRecording,
+    resumeRecording,
     toggleWebcam,
     uploadToS3,
     downloadRecording,

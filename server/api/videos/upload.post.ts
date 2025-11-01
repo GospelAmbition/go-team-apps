@@ -22,14 +22,20 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const fileData = formData[0]
+    // Find the video file in formData
+    const fileData = formData.find(field => field.name === 'video')
 
-    if (!fileData.data) {
+    if (!fileData || !fileData.data) {
       throw createError({
         statusCode: 400,
         message: 'Invalid file data',
       })
     }
+
+    console.log('✅ Video upload to server complete. File size:', fileData.data.length, 'bytes')
+
+    // Find the thumbnail file (optional)
+    const thumbnailData = formData.find(field => field.name === 'thumbnail')
 
     // Generate unique video ID and share token
     const videoId = uuidv4()
@@ -48,7 +54,7 @@ export default defineEventHandler(async (event) => {
       forcePathStyle: true,
     })
 
-    // Upload to S3
+    // Upload video to S3
     const command = new PutObjectCommand({
       Bucket: process.env.S3_BUCKET_NAME,
       Key: key,
@@ -57,9 +63,24 @@ export default defineEventHandler(async (event) => {
     })
 
     await s3Client.send(command)
+    console.log('✅ Video upload to S3 complete. Key:', key)
+
+    // Upload thumbnail to S3 if provided
+    let thumbnailKey: string | null = null
+    if (thumbnailData && thumbnailData.data) {
+      thumbnailKey = `loomsly/${videoId}-thumbnail.jpg`
+      const thumbnailCommand = new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: thumbnailKey,
+        Body: thumbnailData.data,
+        ContentType: 'image/jpeg',
+      })
+      await s3Client.send(thumbnailCommand)
+      console.log('✅ Thumbnail upload to S3 complete. Key:', thumbnailKey)
+    }
 
     // Get metadata from formData (other fields sent with the video)
-    const metadataFields = formData.filter(field => field.name !== 'video')
+    const metadataFields = formData.filter(field => field.name !== 'video' && field.name !== 'thumbnail')
     const metadata: any = {}
     for (const field of metadataFields) {
       if (field.data) {
@@ -74,8 +95,8 @@ export default defineEventHandler(async (event) => {
 
     // Save video metadata to database
     const result = await sql`
-      INSERT INTO videos (id, user_id, title, s3_key, duration, file_size, share_token)
-      VALUES (${videoId}, ${user.userId}, ${title}, ${key}, ${duration}, ${fileSize}, ${shareToken})
+      INSERT INTO videos (id, user_id, title, s3_key, duration, file_size, share_token, thumbnail_url)
+      VALUES (${videoId}, ${user.userId}, ${title}, ${key}, ${duration}, ${fileSize}, ${shareToken}, ${thumbnailKey})
       RETURNING *
     `
 

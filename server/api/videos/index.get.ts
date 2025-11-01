@@ -1,5 +1,6 @@
 import sql, { ensureInitialized } from '../../utils/database'
 import { requireAuth } from '../../utils/auth'
+import { generateDownloadUrl } from '../../utils/s3'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -30,22 +31,38 @@ export default defineEventHandler(async (event) => {
       ORDER BY created_at DESC
     `
 
-    return {
-      success: true,
-      videos: videos.map(video => ({
+    // Generate pre-signed URLs for thumbnails
+    const videosWithThumbnails = await Promise.all(videos.map(async (video) => {
+      let thumbnailUrl = null
+      if (video.thumbnail_url) {
+        try {
+          // Extract filename from s3 key
+          const thumbnailKey = video.thumbnail_url.split('/').pop()
+          thumbnailUrl = await generateDownloadUrl(thumbnailKey)
+        } catch (err) {
+          console.error('Error generating thumbnail URL:', err)
+        }
+      }
+
+      return {
         id: video.id,
         title: video.title,
         duration: video.duration,
         fileSize: video.file_size,
         width: video.width,
         height: video.height,
-        thumbnailUrl: video.thumbnail_url,
+        thumbnailUrl,
         shareToken: video.share_token,
         isPublic: video.is_public,
         viewCount: video.view_count,
         createdAt: video.created_at,
         updatedAt: video.updated_at,
-      })),
+      }
+    }))
+
+    return {
+      success: true,
+      videos: videosWithThumbnails,
     }
   } catch (error: any) {
     console.error('Error fetching videos:', error)
