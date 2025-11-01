@@ -26,6 +26,10 @@ export default defineNuxtConfig({
     '#server': fileURLToPath(new URL('./server', import.meta.url))
   },
 
+  nitro: {
+    preset: 'vercel'
+  },
+
   runtimeConfig: {
     // Private keys (only available on the server-side)
     jwtSecret: process.env.JWT_SECRET,
