@@ -34,8 +34,14 @@
         </UButton>
       </div>
 
+      <!-- Loading State -->
+      <div v-if="loading" class="loading-state">
+        <UIcon name="i-heroicons-arrow-path" class="loading-spinner" />
+        <p>Loading recordings...</p>
+      </div>
+
       <!-- Empty State -->
-      <div v-if="videos.length === 0" class="empty-state">
+      <div v-else-if="videos.length === 0" class="empty-state">
         <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
           <circle cx="12" cy="12" r="3"></circle>
@@ -249,6 +255,34 @@ useHead({
   font-size: 2rem;
   font-weight: 700;
   margin: 0;
+}
+
+/* Loading State */
+.loading-state {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  color: var(--ui-text);
+  margin: 0 auto 1rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-state p {
+  color: var(--ui-text-muted);
+  font-size: 1.1rem;
 }
 
 /* Empty State */
