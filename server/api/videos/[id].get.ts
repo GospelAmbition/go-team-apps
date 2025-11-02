@@ -1,6 +1,6 @@
-import sql, { ensureInitialized } from '../../utils/database'
-import { generateDownloadUrl } from '../../utils/s3'
-import { getAuthUser } from '../../utils/auth'
+import sql, { ensureInitialized } from '#server/utils/database'
+import { generateDownloadUrl } from '#server/utils/s3'
+import { getAuthUser } from '#server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   try {
