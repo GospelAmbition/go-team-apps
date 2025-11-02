@@ -516,7 +516,7 @@ export const useScreenRecorder = () => {
     })
   }
 
-  // Upload to S3 via server
+  // Upload to S3 via pre-signed URLs (bypasses Vercel's 5MB limit)
   const uploadToS3 = async () => {
     if (!recordedVideoUrl.value || recordedChunks.value.length === 0) {
       error.value = 'No recording to upload'
@@ -530,68 +530,113 @@ export const useScreenRecorder = () => {
 
       // Create blob from recorded chunks
       const blob = new Blob(recordedChunks.value, { type: 'video/webm' })
+      const fileSize = blob.size
 
       // Generate thumbnail
       const thumbnailBlob = await generateThumbnail(recordedVideoUrl.value)
 
-      // Create FormData for upload with metadata
-      const formData = new FormData()
-      formData.append('video', blob, `recording-${Date.now()}.webm`)
-      // Don't send title - let server generate default (e.g., "Nov 1, 2025 10:30am")
-      formData.append('duration', recordingTime.value.toString())
-      if (thumbnailBlob) {
-        formData.append('thumbnail', thumbnailBlob, 'thumbnail.jpg')
+      // Step 1: Request pre-signed URLs from server
+      const urlResponse = await $fetch('/api/videos/upload-url', {
+        method: 'POST',
+        body: {
+          fileName: `recording-${Date.now()}.webm`,
+          contentType: 'video/webm',
+          withThumbnail: !!thumbnailBlob,
+        },
+      })
+
+      if (!urlResponse.success || !urlResponse.videoUploadUrl) {
+        throw new Error('Failed to get upload URLs')
       }
 
-      // Upload via server-side API
-      const xhr = new XMLHttpRequest()
+      // Step 2: Upload video directly to S3 using pre-signed URL
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
 
-      return new Promise<boolean>((resolve, reject) => {
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
-            // Cap at 95% to account for server-side processing
-            const progress = Math.round((e.loaded / e.total) * 95)
-            uploadProgress.value = Math.min(progress, 95)
+            // Video upload is 90% of total progress
+            const progress = Math.round((e.loaded / e.total) * 90)
+            uploadProgress.value = progress
           }
         })
 
         xhr.addEventListener('load', () => {
           if (xhr.status === 200) {
-            const response = JSON.parse(xhr.responseText)
-
-            if (response && response.videoId && response.shareToken) {
-              videoId.value = response.videoId
-              shareToken.value = response.shareToken
-              // Set to 100% now that server has finished processing
-              uploadProgress.value = 100
-              isUploading.value = false
-
-              // Generate shareable link using share token
-              const siteUrl = window.location.origin
-              shareableLink.value = `${siteUrl}/watch/${response.shareToken}`
-
-              resolve(true)
-            } else {
-              reject(new Error('Invalid response from server'))
-            }
+            resolve()
           } else {
-            const errorResponse = xhr.responseText ? JSON.parse(xhr.responseText) : {}
-            reject(new Error(errorResponse.message || `Upload failed with status ${xhr.status}`))
+            reject(new Error(`Video upload failed with status ${xhr.status}`))
           }
         })
 
         xhr.addEventListener('error', () => {
-          reject(new Error('Upload failed'))
+          reject(new Error('Video upload failed - CORS error. Please configure B2 CORS rules.'))
         })
 
-        xhr.open('POST', '/api/videos/upload')
-        xhr.withCredentials = true // Send cookies for authentication
-        xhr.send(formData)
+        xhr.open('PUT', urlResponse.videoUploadUrl)
+        xhr.setRequestHeader('Content-Type', 'video/webm')
+        xhr.send(blob)
       })
+
+      // Step 3: Upload thumbnail directly to S3 (if exists)
+      if (thumbnailBlob && urlResponse.thumbnailUploadUrl) {
+        uploadProgress.value = 92 // Show progress update
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+
+          xhr.addEventListener('load', () => {
+            if (xhr.status === 200) {
+              resolve()
+            } else {
+              reject(new Error(`Thumbnail upload failed with status ${xhr.status}`))
+            }
+          })
+
+          xhr.addEventListener('error', () => {
+            reject(new Error('Thumbnail upload failed - CORS error'))
+          })
+
+          xhr.open('PUT', urlResponse.thumbnailUploadUrl)
+          xhr.setRequestHeader('Content-Type', 'image/jpeg')
+          xhr.send(thumbnailBlob)
+        })
+      }
+
+      uploadProgress.value = 95
+
+      // Step 4: Save metadata to database
+      const completeResponse = await $fetch('/api/videos/upload-complete', {
+        method: 'POST',
+        body: {
+          videoId: urlResponse.videoId,
+          videoKey: urlResponse.videoKey,
+          thumbnailKey: urlResponse.thumbnailKey,
+          duration: recordingTime.value,
+          fileSize,
+        },
+      })
+
+      if (!completeResponse.success || !completeResponse.shareToken) {
+        throw new Error('Failed to save video metadata')
+      }
+
+      // Success!
+      videoId.value = completeResponse.videoId
+      shareToken.value = completeResponse.shareToken
+      uploadProgress.value = 100
+      isUploading.value = false
+
+      // Generate shareable link using share token
+      const siteUrl = window.location.origin
+      shareableLink.value = `${siteUrl}/watch/${completeResponse.shareToken}`
+
+      return true
     } catch (err: any) {
       console.error('Error uploading to S3:', err)
       error.value = err.message || 'Failed to upload video'
       isUploading.value = false
+      uploadProgress.value = 0
       return false
     }
   }

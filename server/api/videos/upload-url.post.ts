@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event)
-    const { fileName, contentType } = body
+    const { fileName, contentType, withThumbnail } = body
 
     if (!fileName) {
       throw createError({
@@ -15,16 +15,26 @@ export default defineEventHandler(async (event) => {
     // Generate unique video ID
     const videoId = uuidv4()
     const extension = fileName.split('.').pop() || 'webm'
-    const key = `${videoId}.${extension}`
+    const videoKey = `${videoId}.${extension}`
 
-    // Generate pre-signed upload URL
-    const uploadUrl = await generateUploadUrl(key, contentType || 'video/webm')
+    // Generate pre-signed upload URL for video
+    const videoUploadUrl = await generateUploadUrl(videoKey, contentType || 'video/webm')
+
+    // Generate pre-signed upload URL for thumbnail if requested
+    let thumbnailUploadUrl = null
+    let thumbnailKey = null
+    if (withThumbnail) {
+      thumbnailKey = `${videoId}-thumb.jpg`
+      thumbnailUploadUrl = await generateUploadUrl(thumbnailKey, 'image/jpeg')
+    }
 
     return {
       success: true,
       videoId,
-      key,
-      uploadUrl,
+      videoKey,
+      videoUploadUrl,
+      thumbnailKey,
+      thumbnailUploadUrl,
     }
   } catch (error: any) {
     console.error('Error generating upload URL:', error)
