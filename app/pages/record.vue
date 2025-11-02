@@ -554,7 +554,13 @@ const selectShareLink = (event: Event) => {
 }
 
 const handleStartRecording = () => {
-  startRecording(selectedMode.value)
+  // Default to 'monitor' (entire screen) for screen/both modes
+  if (selectedMode.value === 'screen' || selectedMode.value === 'both') {
+    startRecording(selectedMode.value, 'monitor')
+  } else {
+    // For webcam only, no display surface needed
+    startRecording(selectedMode.value)
+  }
 }
 
 // Cleanup webcam stream on unmount

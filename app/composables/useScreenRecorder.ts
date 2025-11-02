@@ -70,7 +70,7 @@ export const useScreenRecorder = () => {
   }
 
   // Start recording with countdown
-  const startRecording = async (mode: RecordingMode = 'screen') => {
+  const startRecording = async (mode: RecordingMode = 'screen', preferredDisplaySurface?: 'monitor' | 'window' | 'browser') => {
     try {
       error.value = null
       recordedChunks.value = []
@@ -86,13 +86,20 @@ export const useScreenRecorder = () => {
 
       // Get screen stream
       if (mode === 'screen' || mode === 'both') {
-        screenStream.value = await navigator.mediaDevices.getDisplayMedia({
+        const displayMediaConstraints: DisplayMediaStreamOptions = {
           video: {
             width: { ideal: 1920 },
             height: { ideal: 1080 },
-          },
+          } as MediaTrackConstraints,
           audio: true, // System audio
-        })
+        }
+
+        // Add display surface preference if provided
+        if (preferredDisplaySurface) {
+          (displayMediaConstraints.video as MediaTrackConstraints).displaySurface = preferredDisplaySurface
+        }
+
+        screenStream.value = await navigator.mediaDevices.getDisplayMedia(displayMediaConstraints)
         videoStream = screenStream.value
 
         // Check if user selected a tab or window
