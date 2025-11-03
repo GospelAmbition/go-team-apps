@@ -1,7 +1,11 @@
 import { v4 as uuidv4 } from 'uuid'
+import { requireAuth } from '#server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   try {
+    // Require authentication
+    const user = requireAuth(event)
+
     const body = await readBody(event)
     const { fileName, contentType, withThumbnail } = body
 
