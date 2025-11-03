@@ -24,10 +24,17 @@ export default defineEventHandler(async (event) => {
   }
 
   // Validate password length
-  if (password.length < 6) {
+  if (password.length < 8) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Password must be at least 6 characters'
+      statusMessage: 'Password must be at least 8 characters long'
+    })
+  }
+
+  if (password.length > 128) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Password is too long (max 128 characters)'
     })
   }
 

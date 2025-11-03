@@ -16,6 +16,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Display name must be at least 2 characters long' })
   }
 
+  // Validate password length
+  if (password.length < 8) {
+    throw createError({ statusCode: 400, statusMessage: 'Password must be at least 8 characters long' })
+  }
+
+  if (password.length > 128) {
+    throw createError({ statusCode: 400, statusMessage: 'Password is too long (max 128 characters)' })
+  }
+
   // Check if user already exists
   const existingUser = await sql`
     SELECT id FROM users WHERE email = ${email}
