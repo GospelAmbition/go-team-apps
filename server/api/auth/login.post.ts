@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
   const token = jwt.sign(
     { userId: user.id, email: user.email, display_name: user.display_name },
     useRuntimeConfig().jwtSecret,
-    { expiresIn: '120d' }
+    { expiresIn: '30d' }
   )
 
   // Set secure cookie
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: 60 * 60 * 24 * 120 // 120 days
+    maxAge: 60 * 60 * 24 * 30 // 30 days
   })
 
   // Log successful login
