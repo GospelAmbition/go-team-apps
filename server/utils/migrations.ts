@@ -6,6 +6,7 @@ import Migration001 from '#server/migrations/001_create_initial_tables.js'
 import Migration002 from '#server/migrations/002_add_email_change_fields.js'
 import Migration003 from '#server/migrations/003_create_password_reset_table.js'
 import Migration004 from '#server/migrations/004_create_videos_table.js'
+import Migration005 from '#server/migrations/005_add_play_count_to_videos.js'
 
 // Registry of all migrations
 const MIGRATION_CLASSES = [
@@ -13,6 +14,7 @@ const MIGRATION_CLASSES = [
   Migration002,
   Migration003,
   Migration004,
+  Migration005,
 ]
 
 export class MigrationRunner {

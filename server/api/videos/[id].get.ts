@@ -30,6 +30,7 @@ export default defineEventHandler(async (event) => {
         thumbnail_url,
         is_public,
         view_count,
+        play_count,
         created_at
       FROM videos
       WHERE share_token = ${shareToken}
@@ -71,6 +72,7 @@ export default defineEventHandler(async (event) => {
       videoUrl,
       isOwner,
       viewCount: video.view_count,
+      playCount: video.play_count || 0,
     }
   } catch (error: any) {
     console.error('Error getting video URL:', error)

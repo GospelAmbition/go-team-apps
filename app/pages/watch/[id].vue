@@ -76,12 +76,21 @@
           </button>
         </div>
 
-        <div v-if="isOwner" class="view-count">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-          </svg>
-          <span>{{ viewCount }} {{ viewCount === 1 ? 'view' : 'views' }}</span>
+        <div v-if="isOwner" class="stats-container">
+          <div class="stat-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <span>{{ viewCount }} {{ viewCount === 1 ? 'view' : 'views' }}</span>
+          </div>
+          <div class="stat-divider">•</div>
+          <div class="stat-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span>{{ playCount }} {{ playCount === 1 ? 'play' : 'plays' }}</span>
+          </div>
         </div>
 
         <div class="video-container">
@@ -118,6 +127,8 @@ const isEditing = ref(false)
 const editTitle = ref('')
 const videoDbId = ref<string>('')
 const viewCount = ref<number>(0)
+const playCount = ref<number>(0)
+const hasTrackedPlay = ref(false)
 
 // Check if this video has been viewed recently (within 12 hours)
 const hasRecentView = (videoId: string): boolean => {
@@ -163,6 +174,7 @@ onMounted(async () => {
     isOwner.value = response.isOwner || false
     videoDbId.value = response.videoId
     viewCount.value = response.viewCount || 0
+    playCount.value = response.playCount || 0
 
     // Only increment view count on first visit within 12 hours
     if (shouldCountView) {
@@ -181,6 +193,45 @@ onMounted(async () => {
     error.value = err.message || 'Failed to load video'
   } finally {
     loading.value = false
+  }
+})
+
+// Track video progress and increment play count at 90%
+const trackPlayProgress = () => {
+  const video = videoPlayer.value
+  if (!video) return
+
+  const progress = (video.currentTime / video.duration) * 100
+
+  // Reset tracking flag if user seeks back below 80%
+  if (progress < 80 && hasTrackedPlay.value) {
+    hasTrackedPlay.value = false
+  }
+
+  // When video reaches 90%, track as a play (only once per playthrough)
+  if (progress >= 90 && !hasTrackedPlay.value) {
+    hasTrackedPlay.value = true
+
+    // Call the play endpoint
+    $fetch(`/api/videos/${videoId.value}/play`, {
+      method: 'POST',
+    }).catch((err) => {
+      console.warn('Failed to track play:', err)
+    })
+  }
+}
+
+// Watch for video player changes and add event listener
+watch(videoPlayer, (player) => {
+  if (player) {
+    player.addEventListener('timeupdate', trackPlayProgress)
+  }
+})
+
+// Cleanup event listener on unmount
+onUnmounted(() => {
+  if (videoPlayer.value) {
+    videoPlayer.value.removeEventListener('timeupdate', trackPlayProgress)
   }
 })
 
@@ -402,18 +453,28 @@ useHead({
   background: var(--ui-bg-elevated);
 }
 
-.view-count {
+.stats-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
   color: var(--ui-text-muted);
   font-size: 0.95rem;
-  margin-bottom: 1.5rem;
 }
 
-.view-count svg {
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stat-item svg {
   opacity: 0.7;
+}
+
+.stat-divider {
+  opacity: 0.5;
 }
 
 .video-container {
