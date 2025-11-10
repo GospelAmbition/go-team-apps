@@ -1,5 +1,4 @@
 import sql, { ensureInitialized } from '#server/utils/database'
-import { generateDownloadUrl } from '#server/utils/s3'
 import { getAuthUser } from '#server/utils/auth'
 
 export default defineEventHandler(async (event) => {
@@ -16,21 +15,9 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Look up video by share token
+    // Look up video by share token to get the video ID and owner
     const result = await sql`
-      SELECT
-        id,
-        user_id,
-        title,
-        s3_key,
-        duration,
-        file_size,
-        width,
-        height,
-        thumbnail_url,
-        is_public,
-        view_count,
-        created_at
+      SELECT id, user_id, is_public
       FROM videos
       WHERE share_token = ${shareToken}
     `
@@ -56,27 +43,24 @@ export default defineEventHandler(async (event) => {
     const currentUser = getAuthUser(event)
     const isOwner = currentUser?.userId === video.user_id
 
-    // Extract just the filename from s3_key (remove "videos/" prefix)
-    const s3KeyParts = video.s3_key.split('/')
-    const filename = s3KeyParts[s3KeyParts.length - 1]
-
-    // Generate pre-signed download URL
-    const videoUrl = await generateDownloadUrl(filename)
+    // Only increment view count if viewer is not the owner
+    if (!isOwner) {
+      await sql`
+        UPDATE videos
+        SET view_count = view_count + 1
+        WHERE id = ${video.id}
+      `
+    }
 
     return {
       success: true,
-      videoId: video.id,
-      title: video.title,
-      duration: video.duration,
-      videoUrl,
-      isOwner,
-      viewCount: video.view_count,
+      counted: !isOwner,
     }
   } catch (error: any) {
-    console.error('Error getting video URL:', error)
+    console.error('Error incrementing view count:', error)
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || 'Failed to get video URL',
+      message: error.message || 'Failed to increment view count',
     })
   }
 })

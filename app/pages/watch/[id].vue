@@ -76,6 +76,14 @@
           </button>
         </div>
 
+        <div v-if="isOwner" class="view-count">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span>{{ viewCount }} {{ viewCount === 1 ? 'view' : 'views' }}</span>
+        </div>
+
         <div class="video-container">
           <video
             ref="videoPlayer"
@@ -109,6 +117,30 @@ const isOwner = ref(false)
 const isEditing = ref(false)
 const editTitle = ref('')
 const videoDbId = ref<string>('')
+const viewCount = ref<number>(0)
+
+// Check if this video has been viewed recently (within 12 hours)
+const hasRecentView = (videoId: string): boolean => {
+  if (typeof window === 'undefined') return false
+
+  const storageKey = `video_view_${videoId}`
+  const lastViewTime = localStorage.getItem(storageKey)
+
+  if (!lastViewTime) return false
+
+  const twelveHoursInMs = 12 * 60 * 60 * 1000 // 12 hours in milliseconds
+  const timeSinceView = Date.now() - parseInt(lastViewTime, 10)
+
+  return timeSinceView < twelveHoursInMs
+}
+
+// Mark video as viewed in localStorage
+const markAsViewed = (videoId: string) => {
+  if (typeof window === 'undefined') return
+
+  const storageKey = `video_view_${videoId}`
+  localStorage.setItem(storageKey, Date.now().toString())
+}
 
 // Load video on mount
 onMounted(async () => {
@@ -116,6 +148,10 @@ onMounted(async () => {
     loading.value = true
     error.value = null
 
+    // Check if we should count this view
+    const shouldCountView = !hasRecentView(videoId.value as string)
+
+    // Always fetch video data
     const response = await $fetch(`/api/videos/${videoId.value}`)
 
     if (!response || !response.videoUrl) {
@@ -126,6 +162,20 @@ onMounted(async () => {
     videoTitle.value = response.title || 'Untitled Video'
     isOwner.value = response.isOwner || false
     videoDbId.value = response.videoId
+    viewCount.value = response.viewCount || 0
+
+    // Only increment view count on first visit within 12 hours
+    if (shouldCountView) {
+      try {
+        await $fetch(`/api/videos/${videoId.value}/view`, {
+          method: 'POST',
+        })
+        markAsViewed(videoId.value as string)
+      } catch (viewErr) {
+        // Silently fail if view tracking fails - don't block video playback
+        console.warn('Failed to track view:', viewErr)
+      }
+    }
   } catch (err: any) {
     console.error('Error loading video:', err)
     error.value = err.message || 'Failed to load video'
@@ -301,7 +351,7 @@ useHead({
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .video-title {
@@ -350,6 +400,20 @@ useHead({
 .edit-title-btn:hover {
   color: var(--ui-text);
   background: var(--ui-bg-elevated);
+}
+
+.view-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--ui-text-muted);
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+
+.view-count svg {
+  opacity: 0.7;
 }
 
 .video-container {
