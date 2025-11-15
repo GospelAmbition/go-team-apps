@@ -148,7 +148,11 @@ export const useScreenRecorder = () => {
       if (shouldCaptureMicrophone) {
         try {
           audioStream.value = await navigator.mediaDevices.getUserMedia({
-            audio: true,
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
             video: false,
           })
         } catch (err) {
