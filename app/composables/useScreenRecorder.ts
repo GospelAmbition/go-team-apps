@@ -367,26 +367,24 @@ export const useScreenRecorder = () => {
       // Draw screen
       canvasCtx.drawImage(screenVideo, 0, 0, canvas.width, canvas.height)
 
-      // Draw webcam if visible
-      if (showWebcam.value) {
-        const dimensions = getWebcamDimensions(canvas.width, canvas.height)
-        const position = getWebcamPosition(canvas.width, canvas.height, dimensions.width, dimensions.height)
+      // Always draw webcam overlay during recording (showWebcam only affects preview)
+      const dimensions = getWebcamDimensions(canvas.width, canvas.height)
+      const position = getWebcamPosition(canvas.width, canvas.height, dimensions.width, dimensions.height)
 
-        // Draw border/shadow
-        canvasCtx.shadowColor = 'rgba(0, 0, 0, 0.5)'
-        canvasCtx.shadowBlur = 10
+      // Draw border/shadow
+      canvasCtx.shadowColor = 'rgba(0, 0, 0, 0.5)'
+      canvasCtx.shadowBlur = 10
 
-        // Draw webcam
-        canvasCtx.drawImage(
-          webcamVideo,
-          position.x,
-          position.y,
-          dimensions.width,
-          dimensions.height
-        )
+      // Draw webcam
+      canvasCtx.drawImage(
+        webcamVideo,
+        position.x,
+        position.y,
+        dimensions.width,
+        dimensions.height
+      )
 
-        canvasCtx.shadowBlur = 0
-      }
+      canvasCtx.shadowBlur = 0
 
       animationFrameId = requestAnimationFrame(drawFrame)
     }
