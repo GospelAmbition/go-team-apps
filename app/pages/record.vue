@@ -149,12 +149,23 @@
 
           <!-- Audio Settings -->
           <div class="recording-settings">
-            <div class="setting-group">
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="includeAudio" />
-                <span>Include Microphone Audio</span>
-              </label>
-            </div>
+            <UCheckbox
+              v-model="includeAudio"
+              name="includeAudio"
+              label="Include Microphone Audio"
+            >
+              <template #label>
+                <div class="checkbox-label-content">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                  </svg>
+                  <span class="checkbox-label-text">Include Microphone Audio</span>
+                </div>
+              </template>
+            </UCheckbox>
           </div>
 
           <UButton @click="handleStartRecording" size="xl" class="mt-4">
@@ -1141,45 +1152,46 @@ onUnmounted(() => {
   background: var(--ui-bg-elevated);
   border: 1px solid var(--ui-border);
   border-radius: 0.5rem;
-}
-
-.recording-settings h3 {
-  font-size: 1.1rem;
-  margin-bottom: 1.5rem;
-  font-weight: 600;
-}
-
-.setting-group {
-  margin-bottom: 1.5rem;
-}
-
-.setting-group:last-child {
-  margin-bottom: 0;
-}
-
-.setting-group > label {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin-bottom: 0.75rem;
-  color: var(--ui-text-muted);
-}
-
-/* Checkbox Label */
-.checkbox-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  font-size: 0.9rem !important;
-  font-weight: normal !important;
-  color: var(--ui-text) !important;
+  justify-content: center;
 }
 
-.checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+.recording-settings :deep(> div) {
+  align-items: center !important;
+}
+
+.recording-settings :deep(label) {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   cursor: pointer;
+  font-size: 1rem;
+}
+
+.recording-settings :deep(input[type="checkbox"]) {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.checkbox-label-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--ui-text);
+  line-height: 1;
+}
+
+.checkbox-label-content svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+.checkbox-label-text {
+  user-select: none;
+  line-height: 1.5;
 }
 
 /* Webcam Controls */
@@ -1354,6 +1366,23 @@ onUnmounted(() => {
 
   .mode-selection {
     grid-template-columns: 1fr;
+  }
+
+  .recording-settings {
+    padding: 1rem;
+  }
+
+  .recording-settings :deep(label) {
+    font-size: 0.95rem;
+  }
+
+  .checkbox-label-content {
+    font-size: 0.95rem;
+  }
+
+  .checkbox-label-content svg {
+    width: 16px;
+    height: 16px;
   }
 
   /* Webcam preview adjustments for mobile */
