@@ -362,7 +362,18 @@ export const useScreenRecorder = () => {
       }, 1000)
     } catch (err: any) {
       console.error('Error starting recording:', err)
-      error.value = err.message || 'Failed to start recording'
+
+      // Check if user cancelled the screen share dialog
+      const isCancelled = err.name === 'NotAllowedError' ||
+                         err.name === 'AbortError' ||
+                         err.message?.toLowerCase().includes('permission denied') ||
+                         err.message?.toLowerCase().includes('user denied')
+
+      // Only show error if it's not a user cancellation
+      if (!isCancelled) {
+        error.value = err.message || 'Failed to start recording'
+      }
+
       isRecording.value = false
       isPreparingRecording.value = false
       // Don't reset isPositioning or stop tracks if we're in positioning mode
@@ -517,7 +528,18 @@ export const useScreenRecorder = () => {
       return true
     } catch (err: any) {
       console.error('Error finalizing recording:', err)
-      error.value = err.message || 'Failed to start recording'
+
+      // Check if user cancelled
+      const isCancelled = err.name === 'NotAllowedError' ||
+                         err.name === 'AbortError' ||
+                         err.message?.toLowerCase().includes('permission denied') ||
+                         err.message?.toLowerCase().includes('user denied')
+
+      // Only show error if it's not a user cancellation
+      if (!isCancelled) {
+        error.value = err.message || 'Failed to start recording'
+      }
+
       isRecording.value = false
       isPositioning.value = false
       return false

@@ -100,7 +100,7 @@
           <!-- Mode Selection -->
           <div class="mode-selection">
             <UButton
-              @click="selectedMode = 'both'"
+              @click="handleModeSelection('both')"
               :variant="selectedMode === 'both' ? 'solid' : 'outline'"
               size="xl"
               block
@@ -115,7 +115,7 @@
               Screen + Webcam
             </UButton>
             <UButton
-              @click="selectedMode = 'screen'"
+              @click="handleModeSelection('screen')"
               :variant="selectedMode === 'screen' ? 'solid' : 'outline'"
               size="xl"
               block
@@ -131,7 +131,7 @@
               Screen Only
             </UButton>
             <UButton
-              @click="selectedMode = 'webcam'"
+              @click="handleModeSelection('webcam')"
               :variant="selectedMode === 'webcam' ? 'solid' : 'outline'"
               size="xl"
               block
@@ -614,6 +614,16 @@ const copyShareLink = async () => {
 const selectShareLink = (event: Event) => {
   const input = event.target as HTMLInputElement
   input.select()
+}
+
+const handleModeSelection = (mode: RecordingMode) => {
+  // If the same mode is already selected, start recording
+  if (selectedMode.value === mode) {
+    handleStartRecording()
+  } else {
+    // Otherwise, just select the mode
+    selectedMode.value = mode
+  }
 }
 
 const handleStartRecording = () => {
