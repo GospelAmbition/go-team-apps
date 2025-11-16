@@ -114,6 +114,16 @@
             </UButton>
           </div>
 
+          <!-- Audio Settings -->
+          <div class="recording-settings">
+            <div class="setting-group">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="includeAudio" />
+                <span>Include Microphone Audio</span>
+              </label>
+            </div>
+          </div>
+
           <UButton @click="handleStartRecording" size="xl" class="mt-4">
             <template #leading>
               <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
@@ -123,91 +133,10 @@
             Start Recording
           </UButton>
           <p class="hint">
-            <span v-if="selectedMode === 'screen'">Record your entire screen, a specific window, or just a browser tab. Microphone audio will be included.</span>
+            <span v-if="selectedMode === 'screen'">Record your entire screen, a specific window, or just a browser tab.</span>
             <span v-else-if="selectedMode === 'webcam'">Record yourself using your webcam with audio.</span>
-            <span v-else>Record your screen with your webcam in picture-in-picture mode. Note: Webcam overlay will be disabled if you select a browser tab.</span>
+            <span v-else>Record your screen with your webcam overlay in the bottom-right corner.</span>
           </p>
-
-          <!-- Settings for Screen + Webcam mode -->
-          <div v-if="selectedMode === 'both'" class="recording-settings">
-            <h3>Webcam Settings</h3>
-
-            <div class="setting-group">
-              <label>Webcam Position</label>
-              <div class="position-grid">
-                <button
-                  @click="webcamPosition = 'bottom-left'"
-                  :class="['position-btn', { 'position-btn-active': webcamPosition === 'bottom-left' }]"
-                  title="Bottom Left"
-                >
-                  <div class="position-indicator bl">
-                    <video v-if="webcamStream" ref="webcamVideoRef" autoplay muted playsinline class="webcam-mini"></video>
-                  </div>
-                </button>
-                <button
-                  @click="webcamPosition = 'bottom-right'"
-                  :class="['position-btn', { 'position-btn-active': webcamPosition === 'bottom-right' }]"
-                  title="Bottom Right"
-                >
-                  <div class="position-indicator br">
-                    <video v-if="webcamStream" autoplay muted playsinline class="webcam-mini"></video>
-                  </div>
-                </button>
-                <button
-                  @click="webcamPosition = 'top-left'"
-                  :class="['position-btn', { 'position-btn-active': webcamPosition === 'top-left' }]"
-                  title="Top Left"
-                >
-                  <div class="position-indicator tl">
-                    <video v-if="webcamStream" autoplay muted playsinline class="webcam-mini"></video>
-                  </div>
-                </button>
-                <button
-                  @click="webcamPosition = 'top-right'"
-                  :class="['position-btn', { 'position-btn-active': webcamPosition === 'top-right' }]"
-                  title="Top Right"
-                >
-                  <div class="position-indicator tr">
-                    <video v-if="webcamStream" autoplay muted playsinline class="webcam-mini"></video>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <label>Webcam Size</label>
-              <UFieldGroup orientation="horizontal" class="w-full">
-                <UButton
-                  @click="webcamSize = 'small'"
-                  :variant="webcamSize === 'small' ? 'solid' : 'outline'"
-                  block
-                >
-                  Small
-                </UButton>
-                <UButton
-                  @click="webcamSize = 'medium'"
-                  :variant="webcamSize === 'medium' ? 'solid' : 'outline'"
-                  block
-                >
-                  Medium
-                </UButton>
-                <UButton
-                  @click="webcamSize = 'large'"
-                  :variant="webcamSize === 'large' ? 'solid' : 'outline'"
-                  block
-                >
-                  Large
-                </UButton>
-              </UFieldGroup>
-            </div>
-
-            <div class="setting-group">
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="includeMicrophone" />
-                <span>Include Microphone Audio</span>
-              </label>
-            </div>
-          </div>
         </div>
 
         <!-- Preparing Recording - Loading State -->
@@ -432,7 +361,7 @@
 </template>
 
 <script setup lang="ts">
-import type { RecordingMode, WebcamPosition, WebcamSize } from '~/composables/useScreenRecorder'
+import type { RecordingMode } from '~/composables/useScreenRecorder'
 
 // Require authentication
 const { data: user } = await useFetch('/api/auth/me', {
@@ -458,10 +387,8 @@ const {
   shareToken,
   shareableLink,
   recordingMode,
-  webcamPosition,
-  webcamSize,
   showWebcam,
-  includeMicrophone,
+  includeAudio,
   countdown,
   isPreparingRecording,
   tabRecordingFallback,
@@ -483,8 +410,8 @@ const webcamVideoRef = ref<HTMLVideoElement | null>(null)
 // Setup webcam video element when stream is available
 watchEffect(() => {
   if (webcamStream.value) {
-    // Set stream for all video elements that show the webcam
-    const videoElements = document.querySelectorAll<HTMLVideoElement>('.webcam-mini, .webcam-preview')
+    // Set stream for webcam preview during recording
+    const videoElements = document.querySelectorAll<HTMLVideoElement>('.webcam-preview')
     videoElements.forEach(video => {
       if (video && !video.srcObject) {
         video.srcObject = webcamStream.value
@@ -1037,84 +964,6 @@ onUnmounted(() => {
   margin-bottom: 0.75rem;
   color: var(--ui-text-muted);
 }
-
-/* Position Grid */
-.position-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
-}
-
-.position-btn {
-  aspect-ratio: 16 / 9;
-  padding: 0.5rem;
-  border: 2px solid var(--ui-border);
-  background: var(--ui-bg);
-  border-radius: 0.25rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-  overflow: visible;
-}
-
-.position-btn:hover {
-  border-color: var(--ui-text);
-}
-
-.position-btn-active {
-  border-color: rgba(0, 0, 0, 0.85);
-  background: rgba(0, 0, 0, 0.05);
-}
-
-[data-theme="dark"] .position-btn-active {
-  border-color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.position-indicator {
-  position: absolute;
-  width: 25%;
-  height: 25%;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 2px;
-  overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.webcam-mini {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scaleX(-1); /* Mirror the preview */
-}
-
-.position-indicator.tl {
-  top: 8px;
-  left: 8px;
-}
-
-.position-indicator.tr {
-  top: 8px;
-  right: 8px;
-}
-
-.position-indicator.bl {
-  bottom: 8px;
-  left: 8px;
-}
-
-.position-indicator.br {
-  bottom: 8px;
-  right: 8px;
-}
-
-.position-btn-active .position-indicator {
-  border-color: rgba(255, 255, 255, 1);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-
-/* Size Buttons - using NuxtUI ButtonGroup now */
 
 /* Checkbox Label */
 .checkbox-label {

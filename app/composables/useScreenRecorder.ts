@@ -1,6 +1,4 @@
 export type RecordingMode = 'screen' | 'webcam' | 'both'
-export type WebcamPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
-export type WebcamSize = 'small' | 'medium' | 'large'
 
 export const useScreenRecorder = () => {
   const mediaRecorder = ref<MediaRecorder | null>(null)
@@ -26,10 +24,8 @@ export const useScreenRecorder = () => {
 
   // Recording settings
   const recordingMode = ref<RecordingMode>('both')
-  const webcamPosition = ref<WebcamPosition>('bottom-left')
-  const webcamSize = ref<WebcamSize>('medium')
   const showWebcam = ref(true)
-  const includeMicrophone = ref(true)
+  const includeAudio = ref(true)
 
   // Canvas for compositing
   let canvas: HTMLCanvasElement | null = null
@@ -47,26 +43,15 @@ export const useScreenRecorder = () => {
     return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && navigator.mediaDevices.getUserMedia)
   })
 
-  // Get webcam size pixels
+  // Get webcam size pixels (always medium)
   const getWebcamDimensions = (canvasWidth: number, canvasHeight: number) => {
-    const sizes = {
-      small: { width: canvasWidth * 0.15, height: canvasHeight * 0.15 },
-      medium: { width: canvasWidth * 0.25, height: canvasHeight * 0.25 },
-      large: { width: canvasWidth * 0.35, height: canvasHeight * 0.35 },
-    }
-    return sizes[webcamSize.value]
+    return { width: canvasWidth * 0.25, height: canvasHeight * 0.25 }
   }
 
-  // Get webcam position coordinates
+  // Get webcam position coordinates (always bottom-right)
   const getWebcamPosition = (canvasWidth: number, canvasHeight: number, webcamWidth: number, webcamHeight: number) => {
     const padding = 20
-    const positions = {
-      'top-left': { x: padding, y: padding },
-      'top-right': { x: canvasWidth - webcamWidth - padding, y: padding },
-      'bottom-left': { x: padding, y: canvasHeight - webcamHeight - padding },
-      'bottom-right': { x: canvasWidth - webcamWidth - padding, y: canvasHeight - webcamHeight - padding },
-    }
-    return positions[webcamPosition.value]
+    return { x: canvasWidth - webcamWidth - padding, y: canvasHeight - webcamHeight - padding }
   }
 
   // Start recording with countdown
@@ -140,12 +125,8 @@ export const useScreenRecorder = () => {
         }
       }
 
-      // Get microphone audio
-      // Always capture microphone in screen-only mode, optional in screen+webcam mode
-      // Also capture microphone when tab fallback occurs (tabRecordingFallback flag)
-      const shouldCaptureMicrophone = mode === 'screen' || (mode === 'both' && includeMicrophone.value) || tabRecordingFallback.value
-
-      if (shouldCaptureMicrophone) {
+      // Get microphone audio if user wants it
+      if (includeAudio.value) {
         try {
           audioStream.value = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -157,13 +138,6 @@ export const useScreenRecorder = () => {
           })
         } catch (err) {
           console.error('Could not access microphone:', err)
-          // For tab recording fallback, microphone is essential since tab audio may not work
-          if (tabRecordingFallback.value) {
-            error.value = 'Microphone access required for tab recording. Please allow microphone access and try again.'
-            stopAllTracks()
-            isPreparingRecording.value = false
-            return
-          }
         }
       }
 
@@ -726,10 +700,8 @@ export const useScreenRecorder = () => {
 
     // Recording settings
     recordingMode,
-    webcamPosition,
-    webcamSize,
     showWebcam,
-    includeMicrophone,
+    includeAudio,
 
     // Streams
     webcamStream,
