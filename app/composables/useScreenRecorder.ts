@@ -21,6 +21,7 @@ export const useScreenRecorder = () => {
   const isPreparingRecording = ref(false)
   const tabRecordingFallback = ref(false)
   const displaySurfaceType = ref<string | null>(null) // 'monitor', 'window', or 'browser'
+  const isPositioning = ref(false) // NEW: For monitor recording - show positioning step
 
   // Recording settings
   const recordingMode = ref<RecordingMode>('both')
@@ -126,7 +127,7 @@ export const useScreenRecorder = () => {
       }
 
       // Get microphone audio if user wants it
-      if (includeAudio.value) {
+      if (includeAudio.value && mode !== 'webcam') {
         try {
           audioStream.value = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -141,7 +142,37 @@ export const useScreenRecorder = () => {
         }
       }
 
-      // Combine streams if needed
+      // NEW: For monitor + both mode, use PiP positioning approach (no canvas)
+      if (mode === 'both' && displaySurfaceType.value === 'monitor' && webcamStream.value) {
+        // Open PiP for positioning
+        try {
+          pipVideoElement = document.createElement('video')
+          pipVideoElement.srcObject = webcamStream.value
+          pipVideoElement.muted = true
+          pipVideoElement.playsInline = true
+
+          await pipVideoElement.play()
+
+          if (document.pictureInPictureEnabled && pipVideoElement.requestPictureInPicture) {
+            await pipVideoElement.requestPictureInPicture()
+            isPipActive.value = true
+
+            pipVideoElement.addEventListener('leavepictureinpicture', () => {
+              isPipActive.value = false
+              console.log('Picture-in-Picture exited')
+            })
+          }
+        } catch (pipError) {
+          console.warn('Picture-in-Picture not available:', pipError)
+        }
+
+        // Set positioning mode and return early
+        isPositioning.value = true
+        isPreparingRecording.value = false
+        return
+      }
+
+      // For tab/window + both mode, use canvas compositing (original approach)
       if (mode === 'both' && screenStream.value && webcamStream.value) {
         combinedStream.value = await compositeStreams()
         videoStream = combinedStream.value
@@ -295,8 +326,159 @@ export const useScreenRecorder = () => {
       error.value = err.message || 'Failed to start recording'
       isRecording.value = false
       isPreparingRecording.value = false
-      stopAllTracks()
+      // Don't reset isPositioning or stop tracks if we're in positioning mode
+      if (!isPositioning.value) {
+        stopAllTracks()
+      }
     }
+  }
+
+  // NEW: Finalize recording after PiP positioning (for monitor + both mode)
+  const finalizeRecording = async () => {
+    try {
+      error.value = null
+      recordedChunks.value = []
+      recordedVideoUrl.value = null
+      recordingTime.value = 0
+
+      if (!screenStream.value) {
+        throw new Error('No screen stream available')
+      }
+
+      // Record screen directly (no canvas)
+      const videoStream = screenStream.value
+
+      // Combine audio tracks
+      let finalAudioTrack: MediaStreamTrack | null = null
+      const audioSources: MediaStream[] = []
+
+      // Collect all audio sources
+      if (screenStream.value && screenStream.value.getAudioTracks().length > 0) {
+        audioSources.push(screenStream.value)
+      }
+
+      if (audioStream.value && audioStream.value.getAudioTracks().length > 0) {
+        audioSources.push(audioStream.value)
+      }
+
+      // Mix multiple audio sources using Web Audio API
+      if (audioSources.length > 1) {
+        try {
+          audioMixerContext = new AudioContext()
+          const destination = audioMixerContext.createMediaStreamDestination()
+
+          audioSources.forEach(source => {
+            const audioSource = audioMixerContext!.createMediaStreamSource(source)
+            audioSource.connect(destination)
+          })
+
+          finalAudioTrack = destination.stream.getAudioTracks()[0]
+        } catch (err) {
+          console.error('Failed to mix audio tracks:', err)
+          finalAudioTrack = audioSources[0].getAudioTracks()[0]
+        }
+      } else if (audioSources.length === 1) {
+        finalAudioTrack = audioSources[0].getAudioTracks()[0]
+      }
+
+      // Create final stream with video and mixed audio
+      const finalStream = new MediaStream([
+        ...videoStream.getVideoTracks(),
+        ...(finalAudioTrack ? [finalAudioTrack] : [])
+      ])
+
+      // Create MediaRecorder instance
+      const options = { mimeType: 'video/webm;codecs=vp9' }
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options.mimeType = 'video/webm;codecs=vp8'
+      }
+
+      mediaRecorder.value = new MediaRecorder(finalStream, options)
+
+      // Handle data available event
+      mediaRecorder.value.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunks.value.push(event.data)
+        }
+      }
+
+      // Handle recording stop
+      mediaRecorder.value.onstop = () => {
+        const blob = new Blob(recordedChunks.value, { type: 'video/webm' })
+        recordedVideoUrl.value = URL.createObjectURL(blob)
+        isRecording.value = false
+
+        // Stop recording timer
+        if (recordingInterval) {
+          clearInterval(recordingInterval)
+          recordingInterval = null
+        }
+
+        // Close audio mixer context
+        if (audioMixerContext) {
+          audioMixerContext.close()
+          audioMixerContext = null
+        }
+
+        // Exit Picture-in-Picture and cleanup
+        if (pipVideoElement) {
+          if (document.pictureInPictureElement === pipVideoElement) {
+            document.exitPictureInPicture().catch(err => console.log('PiP exit error:', err))
+          }
+          pipVideoElement.srcObject = null
+          pipVideoElement = null
+          isPipActive.value = false
+        }
+
+        // Stop all tracks
+        stopAllTracks()
+      }
+
+      // Handle user stopping sharing via browser UI
+      if (screenStream.value) {
+        const videoTrack = screenStream.value.getVideoTracks()[0]
+        if (videoTrack) {
+          videoTrack.onended = () => {
+            stopRecording()
+          }
+        }
+      }
+
+      // Start recording immediately (no countdown needed)
+      mediaRecorder.value.start(1000)
+      isRecording.value = true
+      isPositioning.value = false
+
+      // Start recording timer
+      recordingInterval = setInterval(() => {
+        if (!isPaused.value) {
+          recordingTime.value++
+        }
+      }, 1000)
+
+      return true
+    } catch (err: any) {
+      console.error('Error finalizing recording:', err)
+      error.value = err.message || 'Failed to start recording'
+      isRecording.value = false
+      isPositioning.value = false
+      return false
+    }
+  }
+
+  // Cancel positioning and cleanup
+  const cancelPositioning = () => {
+    if (pipVideoElement) {
+      if (document.pictureInPictureElement === pipVideoElement) {
+        document.exitPictureInPicture().catch(err => console.log('PiP exit error:', err))
+      }
+      pipVideoElement.srcObject = null
+      pipVideoElement = null
+      isPipActive.value = false
+    }
+    stopAllTracks()
+    isPositioning.value = false
+    displaySurfaceType.value = null
   }
 
   // Composite screen + webcam into canvas
@@ -645,6 +827,7 @@ export const useScreenRecorder = () => {
     shareableLink.value = null
     tabRecordingFallback.value = false
     displaySurfaceType.value = null
+    isPositioning.value = false
   }
 
   // Format recording time as MM:SS
@@ -697,6 +880,7 @@ export const useScreenRecorder = () => {
     tabRecordingFallback,
     isPipActive,
     displaySurfaceType,
+    isPositioning,
 
     // Recording settings
     recordingMode,
@@ -708,6 +892,8 @@ export const useScreenRecorder = () => {
 
     // Methods
     startRecording,
+    finalizeRecording,
+    cancelPositioning,
     stopRecording,
     pauseRecording,
     resumeRecording,

@@ -2,6 +2,7 @@
 
 - Use the NUXT UI components
 - We are Oct 2025
+- close any dev servers you start
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
