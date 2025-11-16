@@ -11,7 +11,19 @@ export default defineEventHandler(async (event) => {
     await ensureInitialized()
 
     const body = await readBody(event)
-    const { videoId, videoKey, thumbnailKey, duration, fileSize } = body
+    const {
+      videoId,
+      videoKey,
+      thumbnailKey,
+      duration,
+      fileSize,
+      width,
+      height,
+      source = 'recording',
+      originalFilename,
+      originalFileSize,
+      compressionRatio
+    } = body
 
     if (!videoId || !videoKey) {
       throw createError({
@@ -43,8 +55,17 @@ export default defineEventHandler(async (event) => {
 
     // Save video metadata to database
     const result = await sql`
-      INSERT INTO videos (id, user_id, title, s3_key, duration, file_size, share_token, thumbnail_url)
-      VALUES (${videoId}, ${user.userId}, ${title}, ${s3Key}, ${duration || 0}, ${fileSize || 0}, ${shareToken}, ${thumbnailS3Key})
+      INSERT INTO videos (
+        id, user_id, title, s3_key, duration, file_size, width, height,
+        share_token, thumbnail_url, source, original_filename,
+        original_file_size, compression_ratio
+      )
+      VALUES (
+        ${videoId}, ${user.userId}, ${title}, ${s3Key}, ${duration || 0},
+        ${fileSize || 0}, ${width || null}, ${height || null}, ${shareToken},
+        ${thumbnailS3Key}, ${source}, ${originalFilename || null},
+        ${originalFileSize || null}, ${compressionRatio || null}
+      )
       RETURNING *
     `
 
