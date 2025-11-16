@@ -1,5 +1,39 @@
 export type RecordingMode = 'screen' | 'webcam' | 'both'
 
+// Helper function to play countdown beep sounds
+const playCountdownBeep = (countdownValue: number) => {
+  try {
+    const audioContext = new AudioContext()
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+
+    // Different frequencies for different countdown numbers
+    // 3 and 2 = same pitch, 1 = higher pitch
+    if (countdownValue === 3 || countdownValue === 2) {
+      oscillator.frequency.value = 600
+    } else if (countdownValue === 1) {
+      oscillator.frequency.value = 700
+    }
+
+    oscillator.type = 'sine'
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2)
+
+    oscillator.start(audioContext.currentTime)
+    oscillator.stop(audioContext.currentTime + 0.2)
+
+    // Clean up
+    setTimeout(() => {
+      audioContext.close()
+    }, 300)
+  } catch (err) {
+    console.error('Failed to play countdown beep:', err)
+  }
+}
+
 export const useScreenRecorder = () => {
   const mediaRecorder = ref<MediaRecorder | null>(null)
   const recordedChunks = ref<Blob[]>([])
@@ -300,15 +334,20 @@ export const useScreenRecorder = () => {
       // Skip countdown for window/tab recordings since user can't see it anyway
       if (!skipCountdown) {
         countdown.value = 3
+        playCountdownBeep(3) // Play beep for 3
         await new Promise<void>((resolve) => {
           const countdownInterval = setInterval(() => {
             countdown.value--
             if (countdown.value === 0) {
               clearInterval(countdownInterval)
               resolve()
+            } else {
+              playCountdownBeep(countdown.value) // Play beep for 2 and 1
             }
           }, 1000)
         })
+        // Small delay to let the countdown UI disappear before recording starts
+        await new Promise(resolve => setTimeout(resolve, 200))
       }
 
       // Start recording
@@ -444,10 +483,29 @@ export const useScreenRecorder = () => {
         }
       }
 
-      // Start recording immediately (no countdown needed)
+      // Exit positioning mode
+      isPositioning.value = false
+
+      // Countdown before starting recording (3, 2, 1)
+      countdown.value = 3
+      playCountdownBeep(3) // Play beep for 3
+      await new Promise<void>((resolve) => {
+        const countdownInterval = setInterval(() => {
+          countdown.value--
+          if (countdown.value === 0) {
+            clearInterval(countdownInterval)
+            resolve()
+          } else {
+            playCountdownBeep(countdown.value) // Play beep for 2 and 1
+          }
+        }, 1000)
+      })
+      // Small delay to let the countdown UI disappear before recording starts
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      // Start recording
       mediaRecorder.value.start(1000)
       isRecording.value = true
-      isPositioning.value = false
 
       // Start recording timer
       recordingInterval = setInterval(() => {
