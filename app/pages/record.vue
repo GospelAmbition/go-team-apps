@@ -292,7 +292,7 @@
               autoplay
               muted
               playsinline
-              :class="['webcam-preview', `position-${webcamPosition}`, `size-${webcamSize}`]"
+              class="webcam-preview position-bottom-right size-medium"
             ></video>
           </div>
 
@@ -477,7 +477,6 @@ const {
   formattedTime,
   isUploading,
   uploadProgress,
-  videoId,
   shareToken,
   shareableLink,
   recordingMode,
@@ -485,9 +484,7 @@ const {
   includeAudio,
   countdown,
   isPreparingRecording,
-  tabRecordingFallback,
   isPipActive,
-  displaySurfaceType,
   isPositioning,
   webcamStream,
   startRecording,
@@ -496,7 +493,6 @@ const {
   stopRecording,
   pauseRecording,
   resumeRecording,
-  toggleWebcam,
   uploadToS3,
   downloadRecording,
   resetRecording,

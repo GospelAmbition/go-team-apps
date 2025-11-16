@@ -718,11 +718,6 @@ export const useScreenRecorder = () => {
     }
   }
 
-  // Toggle webcam visibility
-  const toggleWebcam = () => {
-    showWebcam.value = !showWebcam.value
-  }
-
   // Generate thumbnail from video
   const generateThumbnail = async (videoUrl: string): Promise<Blob | null> => {
     return new Promise((resolve) => {
@@ -981,7 +976,6 @@ export const useScreenRecorder = () => {
     stopRecording,
     pauseRecording,
     resumeRecording,
-    toggleWebcam,
     uploadToS3,
     downloadRecording,
     resetRecording,
