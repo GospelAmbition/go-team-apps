@@ -152,7 +152,11 @@ export const useScreenRecorder = () => {
             width: { ideal: 1280 },
             height: { ideal: 720 },
           },
-          audio: mode === 'webcam', // Capture audio directly for webcam-only mode
+          audio: mode === 'webcam' ? {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          } : false, // Apply noise suppression for webcam-only mode
         })
 
         if (mode === 'webcam') {
