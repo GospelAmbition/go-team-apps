@@ -1,6 +1,6 @@
 <template>
   <div class="recorder-page">
-    <RecorderRecorderHeader />
+    <RecorderHeader />
 
     <RecorderPermissionWarnings
       :webcam-permission="webcamPermission"

@@ -215,7 +215,7 @@ const {
   formatFileSize,
   formatDuration,
   ACCEPTED_FORMATS
-} = useFileUpload()
+} = useVideoUpload()
 
 const isDragging = ref(false)
 const fileInput = ref(null)
