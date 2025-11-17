@@ -529,7 +529,7 @@ export const useScreenRecorder = () => {
   // Upload to S3
   const uploadToS3 = async () => {
     try {
-      await upload.uploadVideo(recordedChunks.value, recordedVideoUrl.value!, recordingTime.value)
+      await upload.uploadRecording(recordedChunks.value, recordedVideoUrl.value!, recordingTime.value)
       return true
     } catch (err: any) {
       error.value = err.message || 'Failed to upload video'
@@ -587,6 +587,12 @@ export const useScreenRecorder = () => {
     pip.closePip()
   })
 
+  // Computed: Get recording size
+  const recordingSize = computed(() => {
+    if (recordedChunks.value.length === 0) return 0
+    return recordedChunks.value.reduce((total, chunk) => total + chunk.size, 0)
+  })
+
   return {
     // State
     isSupported,
@@ -596,8 +602,10 @@ export const useScreenRecorder = () => {
     error,
     recordingTime,
     formattedTime,
+    recordingSize,
     isUploading: upload.isUploading,
     uploadProgress: upload.uploadProgress,
+    uploadProgressNumber: upload.uploadProgressNumber,
     shareToken: upload.shareToken,
     shareableLink: upload.shareableLink,
     countdown,

@@ -73,7 +73,12 @@
         />
 
         <!-- Uploading -->
-        <RecorderUploadingView v-else-if="isUploading" :upload-progress="uploadProgress" />
+        <RecorderUploadingView
+          v-else-if="isUploading"
+          :upload-progress="uploadProgress"
+          :recording-duration="recordingTime"
+          :recording-size="recordingSize"
+        />
 
         <!-- Upload Complete - Share Link -->
         <RecorderShareView
@@ -116,6 +121,8 @@ const {
   recordedVideoUrl,
   error,
   formattedTime,
+  recordingTime,
+  recordingSize,
   isUploading,
   uploadProgress,
   shareToken,

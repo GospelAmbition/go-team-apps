@@ -217,7 +217,7 @@ export const useVideoUpload = () => {
 
       // Read compressed file
       const data = await ffmpeg.readFile(outputFileName)
-      const compressedBlob = new Blob([data], { type: 'video/mp4' })
+      const compressedBlob = new Blob([data as BlobPart], { type: 'video/mp4' })
 
       // Cleanup
       await ffmpeg.deleteFile(inputFileName)
@@ -308,13 +308,15 @@ export const useVideoUpload = () => {
       }
 
       // Upload thumbnail
-      await fetch(thumbnailUploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'image/jpeg'
-        },
-        body: thumbnailBlob
-      })
+      if (thumbnailUploadUrl) {
+        await fetch(thumbnailUploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'image/jpeg'
+          },
+          body: thumbnailBlob
+        })
+      }
 
       uploadProgress.value = {
         stage: 'finalizing',
@@ -323,7 +325,7 @@ export const useVideoUpload = () => {
       }
 
       // Complete upload
-      const completeResponse = await $fetch('/api/videos/upload-complete', {
+      const completeResponse = await $fetch<{ success: boolean; shareToken?: string }>('/api/videos/upload-complete', {
         method: 'POST',
         body: {
           videoId: vid,
@@ -340,7 +342,7 @@ export const useVideoUpload = () => {
         }
       })
 
-      if (!completeResponse.success) {
+      if (!completeResponse.success || !completeResponse.shareToken) {
         throw new Error('Failed to finalize upload')
       }
 
@@ -433,7 +435,9 @@ export const useVideoUpload = () => {
       }
 
       // Stage 3: Upload to S3
-      await uploadToS3(videoBlob, thumbnailBlob, file.name, videoMetadata.value!)
+      if (videoMetadata.value) {
+        await uploadToS3(videoBlob, thumbnailBlob, file.name, videoMetadata.value)
+      }
 
       // Success!
       isUploading.value = false
@@ -449,6 +453,189 @@ export const useVideoUpload = () => {
     }
   }
 
+  // Upload screen recording (for recorded videos)
+  const uploadRecording = async (recordedChunks: Blob[], recordedVideoUrl: string, recordingTime: number) => {
+    if (!recordedVideoUrl || recordedChunks.length === 0) {
+      throw new Error('No recording to upload')
+    }
+
+    try {
+      isUploading.value = true
+      uploadProgress.value = {
+        stage: 'uploading',
+        progress: 0,
+        message: 'Preparing upload...'
+      }
+
+      // Create blob from recorded chunks
+      const blob = new Blob(recordedChunks, { type: 'video/webm' })
+      const fileSize = blob.size
+
+      // Generate thumbnail from video URL
+      const thumbnailBlob = await generateThumbnailFromUrl(recordedVideoUrl)
+
+      uploadProgress.value = {
+        stage: 'uploading',
+        progress: 5,
+        message: 'Requesting upload URL...'
+      }
+
+      // Step 1: Request pre-signed URLs from server
+      const urlResponse = await $fetch('/api/videos/upload-url', {
+        method: 'POST',
+        body: {
+          fileName: `recording-${Date.now()}.webm`,
+          contentType: 'video/webm',
+          withThumbnail: !!thumbnailBlob,
+        },
+      })
+
+      if (!urlResponse.success || !urlResponse.videoUploadUrl) {
+        throw new Error('Failed to get upload URLs')
+      }
+
+      videoId.value = urlResponse.videoId
+
+      uploadProgress.value = {
+        stage: 'uploading',
+        progress: 10,
+        message: 'Uploading video...'
+      }
+
+      // Step 2: Upload video directly to S3 using pre-signed URL
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            // Video upload is 10-90% of total progress
+            const progress = Math.round((e.loaded / e.total) * 80) + 10
+            uploadProgress.value = {
+              stage: 'uploading',
+              progress,
+              message: `Uploading video... ${progress}%`
+            }
+          }
+        })
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status === 200) {
+            resolve()
+          } else {
+            reject(new Error(`Video upload failed with status ${xhr.status}`))
+          }
+        })
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Video upload failed - network error'))
+        })
+
+        xhr.open('PUT', urlResponse.videoUploadUrl)
+        xhr.setRequestHeader('Content-Type', 'video/webm')
+        xhr.send(blob)
+      })
+
+      // Step 3: Upload thumbnail directly to S3 (if exists)
+      if (thumbnailBlob && urlResponse.thumbnailUploadUrl) {
+        uploadProgress.value = {
+          stage: 'uploading',
+          progress: 92,
+          message: 'Uploading thumbnail...'
+        }
+
+        await fetch(urlResponse.thumbnailUploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'image/jpeg'
+          },
+          body: thumbnailBlob
+        })
+      }
+
+      uploadProgress.value = {
+        stage: 'finalizing',
+        progress: 95,
+        message: 'Finalizing upload...'
+      }
+
+      // Step 4: Save metadata to database
+      const completeResponse = await $fetch<{ success: boolean; shareToken?: string }>('/api/videos/upload-complete', {
+        method: 'POST',
+        body: {
+          videoId: urlResponse.videoId,
+          videoKey: urlResponse.videoKey,
+          thumbnailKey: urlResponse.thumbnailKey,
+          duration: recordingTime,
+          fileSize,
+          source: 'recording',
+        },
+      })
+
+      if (!completeResponse.success || !completeResponse.shareToken) {
+        throw new Error('Failed to save video metadata')
+      }
+
+      // Success!
+      shareToken.value = completeResponse.shareToken
+      uploadProgress.value = {
+        stage: 'complete',
+        progress: 100,
+        message: 'Upload complete!'
+      }
+      isUploading.value = false
+
+      return true
+    } catch (err: any) {
+      console.error('Error uploading recording:', err)
+      isUploading.value = false
+      uploadProgress.value = {
+        stage: 'error',
+        progress: 0,
+        message: err.message || 'Upload failed. Please try again.'
+      }
+      error.value = err.message || 'Upload failed. Please try again.'
+      throw err
+    }
+  }
+
+  // Generate thumbnail from video URL
+  const generateThumbnailFromUrl = async (videoUrl: string): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video')
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+
+      video.onloadedmetadata = () => {
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        video.currentTime = 1 // Seek to 1 second
+      }
+
+      video.onseeked = () => {
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          canvas.toBlob((blob) => {
+            window.URL.revokeObjectURL(video.src)
+            if (blob) {
+              resolve(blob)
+            } else {
+              reject(new Error('Failed to generate thumbnail'))
+            }
+          }, 'image/jpeg', 0.8)
+        } else {
+          reject(new Error('Failed to get canvas context'))
+        }
+      }
+
+      video.onerror = () => {
+        window.URL.revokeObjectURL(video.src)
+        reject(new Error('Failed to load video for thumbnail'))
+      }
+
+      video.src = videoUrl
+    })
+  }
+
   // Select file
   const selectFile = async (file: File) => {
     selectedFile.value = file
@@ -458,7 +645,7 @@ export const useVideoUpload = () => {
     if (videoPreviewUrl.value) {
       URL.revokeObjectURL(videoPreviewUrl.value)
     }
-    videoPreviewUrl.value = URL.createObjectURL(file)
+    videoPreviewUrl.value = URL.createObjectURL(file) || null
 
     // Validate immediately
     const validation = validateFile(file)
@@ -516,6 +703,19 @@ export const useVideoUpload = () => {
     return `${minutes}:${secs.toString().padStart(2, '0')}`
   }
 
+  // Computed: Generate shareable link from share token
+  const shareableLink = computed(() => {
+    if (!shareToken.value) return null
+    const siteUrl = window.location.origin
+    return `${siteUrl}/watch/${shareToken.value}`
+  })
+
+  // Computed: Extract just the progress number for backward compatibility
+  const uploadProgressNumber = computed(() => uploadProgress.value.progress)
+
+  // Alias for reset (for backward compatibility with screen recorder)
+  const resetUpload = reset
+
   return {
     // State
     selectedFile,
@@ -524,13 +724,19 @@ export const useVideoUpload = () => {
     isUploading,
     error,
     uploadProgress,
+    uploadProgressNumber,
     shareToken,
     videoId,
+
+    // Computed
+    shareableLink,
 
     // Methods
     selectFile,
     uploadVideo,
+    uploadRecording,
     reset,
+    resetUpload,
     formatFileSize,
     formatDuration,
 
