@@ -18,7 +18,6 @@ export const usePictureInPicture = () => {
 
         pipVideoElement.addEventListener('leavepictureinpicture', () => {
           isPipActive.value = false
-          console.log('Picture-in-Picture exited')
         })
 
         return true

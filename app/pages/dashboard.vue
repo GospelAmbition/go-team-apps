@@ -52,6 +52,26 @@
           </div>
         </NuxtLink>
 
+        <NuxtLink to="/upload" class="action-card action-card-secondary">
+          <div class="action-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32">
+              <path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+          <div class="action-content">
+            <h2>Upload Video</h2>
+            <p>Upload existing videos from your computer</p>
+          </div>
+          <div class="action-arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </div>
+        </NuxtLink>
+
         <NuxtLink to="/library" class="action-card action-card-secondary">
           <div class="action-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32">
@@ -178,9 +198,15 @@ onMounted(() => {
 /* Featured Actions */
 .featured-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
   margin-bottom: 3rem;
+}
+
+@media (min-width: 1024px) {
+  .featured-actions {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .action-card {
