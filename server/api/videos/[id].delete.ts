@@ -1,5 +1,3 @@
-import sql, { ensureInitialized } from '#server/utils/database'
-import { requireAuth } from '#server/utils/auth'
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3'
 
 export default defineEventHandler(async (event) => {

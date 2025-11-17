@@ -1,5 +1,3 @@
-import sql, { ensureInitialized } from '#server/utils/database'
-import { getAuthUser } from '#server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   try {

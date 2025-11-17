@@ -1,5 +1,4 @@
 import { v4 as uuidv4 } from 'uuid'
-import { requireAuth } from '#server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   try {

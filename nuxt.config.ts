@@ -3,7 +3,7 @@ import {fileURLToPath} from "url";
 
 export default defineNuxtConfig({
   // Extend the nuxt-base layer for auth, theme, and common utilities
-  extends: ['github:corsacca/nuxt-base'],
+  extends: ['github:corsacca/nuxt-base#master'],
 
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
