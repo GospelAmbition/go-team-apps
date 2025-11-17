@@ -1,6 +1,18 @@
 <template>
   <div class="recorder-page">
-    <RecorderHeader />
+    <PageHeader title="Record Video">
+      <template #actions>
+        <UButton to="/library" variant="outline" size="sm">
+          <template #leading>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </template>
+          Library
+        </UButton>
+      </template>
+    </PageHeader>
 
     <RecorderPermissionWarnings
       :webcam-permission="webcamPermission"

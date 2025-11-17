@@ -1,17 +1,6 @@
 <template>
   <div class="upload-container">
-    <header class="upload-header">
-      <div class="header-content">
-        <NuxtLink to="/dashboard" class="back-link">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
-          Back to Dashboard
-        </NuxtLink>
-        <h1>Upload Video</h1>
-      </div>
-    </header>
+    <PageHeader title="Upload Video" />
 
     <main class="upload-main">
       <!-- Upload Complete -->
@@ -244,38 +233,6 @@ const handleDrop = (event) => {
 .upload-container {
   min-height: 100vh;
   background: var(--bg);
-  color: var(--text);
-}
-
-.upload-header {
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  padding: 1rem 0;
-}
-
-.header-content {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-muted);
-  text-decoration: none;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-  transition: color 0.2s;
-}
-
-.back-link:hover {
-  color: var(--text);
-}
-
-.header-content h1 {
-  margin: 0.5rem 0 0 0;
   color: var(--text);
 }
 
