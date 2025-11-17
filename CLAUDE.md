@@ -69,12 +69,13 @@ The project uses Nuxt's automatic TypeScript configuration system. The main `tsc
 - `.nuxt/tsconfig.shared.json` - Shared TypeScript config
 - `.nuxt/tsconfig.node.json` - Node.js TypeScript config
 
-## Nuxt Configuration
-
-- Compatibility date: 2025-07-15
-- Devtools enabled for development
-- SSR disabled (SPA mode)
-- Uses Nuxt 4.x with Vue 3.5+ and Vue Router 4.5+
+## ⚠️ MANDATORY: Nuxt Routing Rules
+**CRITICAL: Avoid routing conflicts in Nuxt file-based routing**
+- **NEVER create both `pages/section.vue` AND `pages/section/[id]/page.vue`** - This creates routing conflicts
+- **ALWAYS use nested structure**: `pages/section/index.vue` + `pages/section/[id]/page.vue`
+- **Example conflict**: `pages/admin/users.vue` + `pages/admin/users/[id]/activity.vue` ❌
+- **Correct structure**: `pages/admin/users/index.vue` + `pages/admin/users/[id]/activity.vue` ✅
+- **When adding nested routes, move existing flat files to index.vue in subdirectory**
 
 ## Documentation
 
