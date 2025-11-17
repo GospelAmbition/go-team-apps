@@ -1,3 +1,4 @@
+import { generateDownloadUrl } from '#server/utils/video-storage'
 
 export default defineEventHandler(async (event) => {
   try {
