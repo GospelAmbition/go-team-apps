@@ -1,6 +1,5 @@
-import sql, { ensureInitialized } from '#server/utils/database'
-import { generateDownloadUrl } from '#server/utils/s3'
-import { getAuthUser } from '#server/utils/auth'
+// Server utils from nuxt-base layer are auto-imported
+import { generateDownloadUrl } from '#server/utils/video-storage'
 
 export default defineEventHandler(async (event) => {
   try {

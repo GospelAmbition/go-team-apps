@@ -1,5 +1,3 @@
-import sql, { ensureInitialized } from '#server/utils/database'
-import { requireAuth } from '#server/utils/auth'
 import { randomBytes } from 'crypto'
 
 export default defineEventHandler(async (event) => {

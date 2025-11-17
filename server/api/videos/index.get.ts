@@ -1,6 +1,4 @@
-import sql, { ensureInitialized } from '#server/utils/database'
-import { requireAuth } from '#server/utils/auth'
-import { generateDownloadUrl } from '#server/utils/s3'
+import { generateDownloadUrl } from '#server/utils/video-storage'
 
 export default defineEventHandler(async (event) => {
   try {

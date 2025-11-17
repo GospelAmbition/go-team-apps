@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import { requireAuth } from '#server/utils/auth'
+import { generateUploadUrl } from '#server/utils/video-storage'
 
 export default defineEventHandler(async (event) => {
   try {
