@@ -1,9 +1,6 @@
 
 export default defineEventHandler(async (event) => {
   try {
-    // Ensure database is initialized
-    await ensureInitialized()
-
     const shareToken = getRouterParam(event, 'id')
 
     if (!shareToken) {

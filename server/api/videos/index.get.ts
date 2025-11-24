@@ -5,9 +5,6 @@ export default defineEventHandler(async (event) => {
     // Require authentication
     const user = requireAuth(event)
 
-    // Ensure database is initialized
-    await ensureInitialized()
-
     // Fetch all videos for the authenticated user
     const videos = await sql`
       SELECT

@@ -3,9 +3,6 @@ import { generateDownloadUrl } from '#server/utils/video-storage'
 
 export default defineEventHandler(async (event) => {
   try {
-    // Ensure database is initialized
-    await ensureInitialized()
-
     const shareToken = getRouterParam(event, 'id')
 
     if (!shareToken) {

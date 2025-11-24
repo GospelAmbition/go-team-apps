@@ -4,9 +4,6 @@ export default defineEventHandler(async (event) => {
     // Require authentication
     const user = requireAuth(event)
 
-    // Ensure database is initialized
-    await ensureInitialized()
-
     // Get video ID from URL
     const videoId = getRouterParam(event, 'id')
 
