@@ -1,5 +1,12 @@
-import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import {
+  Input,
+  Output,
+  Conversion,
+  Mp4OutputFormat,
+  BufferTarget,
+  BlobSource,
+  ALL_FORMATS,
+} from 'mediabunny'
 
 interface UploadProgress {
   stage: 'validating' | 'compressing' | 'uploading' | 'finalizing' | 'complete' | 'error'
@@ -36,9 +43,6 @@ export const useVideoUpload = () => {
   const error = ref<string | null>(null)
   const shareToken = ref<string | null>(null)
   const videoId = ref<string | null>(null)
-
-  let ffmpeg: FFmpeg | null = null
-  let ffmpegLoaded = false
 
   // Detect if device is mobile
   const isMobile = () => {
@@ -138,90 +142,67 @@ export const useVideoUpload = () => {
     })
   }
 
-  // Load FFmpeg
-  const loadFFmpeg = async () => {
-    if (ffmpegLoaded) return
-
-    try {
-      uploadProgress.value = {
-        stage: 'compressing',
-        progress: 0,
-        message: 'Loading video processor...'
-      }
-
-      ffmpeg = new FFmpeg()
-
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
-
-      ffmpeg.on('log', ({ message }) => {
-        console.log('[FFmpeg]', message)
-      })
-
-      ffmpeg.on('progress', ({ progress, time }) => {
-        const percentage = Math.round(progress * 100)
-        uploadProgress.value = {
-          stage: 'compressing',
-          progress: percentage,
-          message: `Optimizing video for web viewing... ${percentage}%`
-        }
-      })
-
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      })
-
-      ffmpegLoaded = true
-    } catch (err) {
-      console.error('FFmpeg load error:', err)
-      throw new Error('Failed to load video processor. Please try uploading a smaller file.')
-    }
-  }
-
-  // Compress video using FFmpeg
+  // Compress video using Mediabunny (WebCodecs - hardware accelerated)
   const compressVideo = async (file: File): Promise<Blob> => {
-    if (!ffmpeg) {
-      throw new Error('FFmpeg not loaded')
-    }
-
     try {
-      const inputFileName = 'input.mp4'
-      const outputFileName = 'output.mp4'
-
       uploadProgress.value = {
         stage: 'compressing',
         progress: 5,
-        message: 'Preparing video for compression...'
+        message: 'Initializing video processor...'
       }
 
-      // Write file to FFmpeg virtual filesystem
-      await ffmpeg.writeFile(inputFileName, await fetchFile(file))
+      // Create input from file
+      const input = new Input({
+        formats: ALL_FORMATS,
+        source: new BlobSource(file)
+      })
+
+      // Create output target
+      const bufferTarget = new BufferTarget()
+      const output = new Output({
+        format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+        target: bufferTarget,
+      })
 
       uploadProgress.value = {
         stage: 'compressing',
         progress: 10,
-        message: 'Compressing video...'
+        message: 'Analyzing video...'
       }
 
-      // Compress with H.264 + AAC
-      await ffmpeg.exec([
-        '-i', inputFileName,
-        '-c:v', 'libx264',
-        '-crf', '28',
-        '-preset', 'medium',
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        '-movflags', '+faststart',
-        outputFileName
-      ])
+      // Initialize conversion with compression settings
+      const conversion = await Conversion.init({
+        input,
+        output,
+        video: {
+          width: 1280, // Max width (will maintain aspect ratio)
+          bitrate: 2_500_000, // 2.5 Mbps
+        },
+        audio: {
+          bitrate: 128_000, // 128 kbps
+        },
+      })
 
-      // Read compressed file
-      const data = await ffmpeg.readFile(outputFileName)
-      const compressedBlob = new Blob([data as BlobPart], { type: 'video/mp4' })
+      if (!conversion.isValid) {
+        console.warn('Some tracks could not be converted:', conversion.discardedTracks)
+      }
 
-      // Cleanup
-      await ffmpeg.deleteFile(inputFileName)
-      await ffmpeg.deleteFile(outputFileName)
+      // Track progress
+      conversion.onProgress = (progress: number) => {
+        const percentage = Math.round(progress * 90) + 10 // 10-100%
+        uploadProgress.value = {
+          stage: 'compressing',
+          progress: percentage,
+          message: `Compressing video (hardware accelerated)... ${percentage}%`
+        }
+      }
+
+      // Execute conversion
+      await conversion.execute()
+
+      // Get the compressed buffer
+      const compressedBuffer = bufferTarget.buffer
+      const compressedBlob = new Blob([compressedBuffer], { type: 'video/mp4' })
 
       uploadProgress.value = {
         stage: 'compressing',
@@ -403,11 +384,10 @@ export const useVideoUpload = () => {
         uploadProgress.value = {
           stage: 'compressing',
           progress: 0,
-          message: 'This will reduce file size by ~90%'
+          message: 'Preparing hardware-accelerated compression...'
         }
 
         try {
-          await loadFFmpeg()
           const compressedBlob = await compressVideo(file)
 
           compressionRatio = parseFloat(((file.size - compressedBlob.size) / file.size * 100).toFixed(2))

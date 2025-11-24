@@ -31,14 +31,6 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'vercel',
-    routeRules: {
-      '/**': {
-        headers: {
-          'Cross-Origin-Embedder-Policy': 'require-corp',
-          'Cross-Origin-Opener-Policy': 'same-origin'
-        }
-      }
-    }
   },
 
   runtimeConfig: {
