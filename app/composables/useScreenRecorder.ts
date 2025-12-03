@@ -1,4 +1,5 @@
 import { playCountdownBeep, getWebcamDimensions, getWebcamPosition } from '~/utils/recording-helpers'
+import fixWebmDuration from 'fix-webm-duration'
 
 export type RecordingMode = 'screen' | 'webcam' | 'both'
 
@@ -293,8 +294,10 @@ export const useScreenRecorder = () => {
       }
 
       // Handle recording stop
-      mediaRecorder.value.onstop = () => {
-        const blob = new Blob(recordedChunks.value, { type: 'video/webm' })
+      mediaRecorder.value.onstop = async () => {
+        const rawBlob = new Blob(recordedChunks.value, { type: 'video/webm' })
+        // Fix WebM duration metadata for proper seeking/scrubbing in preview
+        const blob = await fixWebmDuration(rawBlob, recordingTime.value * 1000)
         recordedVideoUrl.value = URL.createObjectURL(blob)
         isRecording.value = false
 
@@ -424,8 +427,10 @@ export const useScreenRecorder = () => {
         }
       }
 
-      mediaRecorder.value.onstop = () => {
-        const blob = new Blob(recordedChunks.value, { type: 'video/webm' })
+      mediaRecorder.value.onstop = async () => {
+        const rawBlob = new Blob(recordedChunks.value, { type: 'video/webm' })
+        // Fix WebM duration metadata for proper seeking/scrubbing in preview
+        const blob = await fixWebmDuration(rawBlob, recordingTime.value * 1000)
         recordedVideoUrl.value = URL.createObjectURL(blob)
         isRecording.value = false
 

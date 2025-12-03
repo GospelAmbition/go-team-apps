@@ -20,6 +20,7 @@
     "@aws-sdk/s3-request-presigner": "^3.914.0",
     "@nuxt/ui": "^4.0.1",
     "bcrypt": "^6.0.0",
+    "fix-webm-duration": "^1.0.6",
     "jsonwebtoken": "^9.0.2",
     "mediabunny": "^1.25.1",
     "nodemailer": "^7.0.6",

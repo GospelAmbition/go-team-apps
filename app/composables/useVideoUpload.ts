@@ -7,6 +7,7 @@ import {
   BlobSource,
   ALL_FORMATS,
 } from 'mediabunny'
+import fixWebmDuration from 'fix-webm-duration'
 
 interface UploadProgress {
   stage: 'validating' | 'compressing' | 'uploading' | 'finalizing' | 'complete' | 'error'
@@ -448,7 +449,16 @@ export const useVideoUpload = () => {
       }
 
       // Create blob from recorded chunks
-      const blob = new Blob(recordedChunks, { type: 'video/webm' })
+      const rawBlob = new Blob(recordedChunks, { type: 'video/webm' })
+
+      uploadProgress.value = {
+        stage: 'uploading',
+        progress: 2,
+        message: 'Fixing video metadata...'
+      }
+
+      // Fix WebM duration metadata for proper seeking/scrubbing
+      const blob = await fixWebmDuration(rawBlob, recordingTime * 1000)
       const fileSize = blob.size
 
       // Generate thumbnail from video URL
