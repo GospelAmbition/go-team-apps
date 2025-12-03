@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" theme(static);
 @import "@nuxt/ui";
 
 :root {
@@ -66,7 +66,7 @@ button,
     --shadow: rgba(0, 0, 0, 0.1);
 }
 
-[data-theme="dark"] {
+.dark {
     /* Dashboard CSS variables (keep for compatibility) */
     --bg-color: #000000;
     --bg: #000000;
@@ -151,9 +151,9 @@ body {
 }
 
 /* Nuxt UI Card theming - Grey backgrounds only in dark mode */
-[data-theme="dark"] div[class*="rounded"][class*="ring"],
-[data-theme="dark"] div[class*="rounded"][class*="shadow"],
-[data-theme="dark"] div[class*="rounded"][class*="border"] {
+.dark div[class*="rounded"][class*="ring"],
+.dark div[class*="rounded"][class*="shadow"],
+.dark div[class*="rounded"][class*="border"] {
     background-color: #1a1a1a !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
@@ -180,13 +180,13 @@ button:not([class*="outline"]):not([class*="ghost"]):hover:not(:disabled) {
 }
 
 /* Dark theme - add white borders to buttons so they're visible on black background */
-[data-theme="dark"] button:not([class*="outline"]):not([class*="ghost"]) {
+.dark button:not([class*="outline"]):not([class*="ghost"]) {
     background-color: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
     color: white !important;
 }
 
-[data-theme="dark"] button:not([class*="outline"]):not([class*="ghost"]):hover:not(:disabled) {
+.dark button:not([class*="outline"]):not([class*="ghost"]):hover:not(:disabled) {
     background-color: rgba(255, 255, 255, 0.15) !important;
     border-color: rgba(255, 255, 255, 0.5) !important;
 }

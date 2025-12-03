@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
+    "migrate": "node node_modules/.c12/github_corsacca_nuxt-base_master/scripts/migrate.mjs",
+    "build": "npm run migrate && nuxt build",
+    "dev": "npm run migrate && nuxt dev",
     "dev:mail": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
