@@ -3,6 +3,22 @@ import fixWebmDuration from 'fix-webm-duration'
 
 export type RecordingMode = 'screen' | 'webcam' | 'both'
 
+// Get the best supported recording format (prefer MP4 for iOS compatibility)
+const getRecordingMimeType = (): { mimeType: string; isMP4: boolean } => {
+  // Prefer MP4 for universal playback (especially iOS Safari)
+  if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2')) {
+    return { mimeType: 'video/mp4;codecs=avc1,mp4a.40.2', isMP4: true }
+  }
+  if (MediaRecorder.isTypeSupported('video/mp4')) {
+    return { mimeType: 'video/mp4', isMP4: true }
+  }
+  // Fallback to WebM (Firefox, older browsers)
+  if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+    return { mimeType: 'video/webm;codecs=vp9', isMP4: false }
+  }
+  return { mimeType: 'video/webm;codecs=vp8', isMP4: false }
+}
+
 export const useScreenRecorder = () => {
   // Use sub-composables
   const audioMixer = useAudioMixer()
@@ -35,6 +51,7 @@ export const useScreenRecorder = () => {
   // Internal state
   const tabRecordingFallback = ref(false)
   const displaySurfaceType = ref<string | null>(null)
+  const recordingFormat = ref<{ mimeType: string; isMP4: boolean } | null>(null)
 
   // Canvas for compositing
   let canvas: HTMLCanvasElement | null = null
@@ -278,13 +295,9 @@ export const useScreenRecorder = () => {
         ...(finalAudioTrack ? [finalAudioTrack] : [])
       ])
 
-      // Create MediaRecorder instance
-      const options = { mimeType: 'video/webm;codecs=vp9' }
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options.mimeType = 'video/webm;codecs=vp8'
-      }
-
-      mediaRecorder.value = new MediaRecorder(finalStream, options)
+      // Create MediaRecorder instance (prefer MP4 for iOS compatibility)
+      recordingFormat.value = getRecordingMimeType()
+      mediaRecorder.value = new MediaRecorder(finalStream, { mimeType: recordingFormat.value.mimeType })
 
       // Handle data available event
       mediaRecorder.value.ondataavailable = (event) => {
@@ -295,9 +308,11 @@ export const useScreenRecorder = () => {
 
       // Handle recording stop
       mediaRecorder.value.onstop = async () => {
-        const rawBlob = new Blob(recordedChunks.value, { type: 'video/webm' })
-        // Fix WebM duration metadata for proper seeking/scrubbing in preview
-        const blob = await fixWebmDuration(rawBlob, recordingTime.value * 1000)
+        const format = recordingFormat.value
+        const rawBlob = new Blob(recordedChunks.value, { type: format?.mimeType || 'video/webm' })
+
+        // Fix WebM duration metadata for proper seeking/scrubbing in preview (not needed for MP4)
+        const blob = format?.isMP4 ? rawBlob : await fixWebmDuration(rawBlob, recordingTime.value * 1000)
         recordedVideoUrl.value = URL.createObjectURL(blob)
         isRecording.value = false
 
@@ -413,13 +428,9 @@ export const useScreenRecorder = () => {
         ...(finalAudioTrack ? [finalAudioTrack] : [])
       ])
 
-      // Create MediaRecorder
-      const options = { mimeType: 'video/webm;codecs=vp9' }
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options.mimeType = 'video/webm;codecs=vp8'
-      }
-
-      mediaRecorder.value = new MediaRecorder(finalStream, options)
+      // Create MediaRecorder (prefer MP4 for iOS compatibility)
+      recordingFormat.value = getRecordingMimeType()
+      mediaRecorder.value = new MediaRecorder(finalStream, { mimeType: recordingFormat.value.mimeType })
 
       mediaRecorder.value.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -428,9 +439,11 @@ export const useScreenRecorder = () => {
       }
 
       mediaRecorder.value.onstop = async () => {
-        const rawBlob = new Blob(recordedChunks.value, { type: 'video/webm' })
-        // Fix WebM duration metadata for proper seeking/scrubbing in preview
-        const blob = await fixWebmDuration(rawBlob, recordingTime.value * 1000)
+        const format = recordingFormat.value
+        const rawBlob = new Blob(recordedChunks.value, { type: format?.mimeType || 'video/webm' })
+
+        // Fix WebM duration metadata for proper seeking/scrubbing in preview (not needed for MP4)
+        const blob = format?.isMP4 ? rawBlob : await fixWebmDuration(rawBlob, recordingTime.value * 1000)
         recordedVideoUrl.value = URL.createObjectURL(blob)
         isRecording.value = false
 
@@ -534,7 +547,7 @@ export const useScreenRecorder = () => {
   // Upload to S3
   const uploadToS3 = async () => {
     try {
-      await upload.uploadRecording(recordedChunks.value, recordedVideoUrl.value!, recordingTime.value)
+      await upload.uploadRecording(recordedChunks.value, recordedVideoUrl.value!, recordingTime.value, recordingFormat.value)
       return true
     } catch (err: any) {
       error.value = err.message || 'Failed to upload video'
@@ -546,9 +559,11 @@ export const useScreenRecorder = () => {
   const downloadRecording = () => {
     if (!recordedVideoUrl.value) return
 
+    const format = recordingFormat.value
+    const extension = format?.isMP4 ? 'mp4' : 'webm'
     const a = document.createElement('a')
     a.href = recordedVideoUrl.value
-    a.download = `screen-recording-${Date.now()}.webm`
+    a.download = `screen-recording-${Date.now()}.${extension}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -566,6 +581,7 @@ export const useScreenRecorder = () => {
     tabRecordingFallback.value = false
     displaySurfaceType.value = null
     isPositioning.value = false
+    recordingFormat.value = null
     upload.resetUpload()
   }
 
@@ -619,6 +635,7 @@ export const useScreenRecorder = () => {
     isPipActive: pip.isPipActive,
     displaySurfaceType,
     isPositioning,
+    recordingFormat,
 
     // Recording settings
     recordingMode,

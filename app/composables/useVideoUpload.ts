@@ -435,7 +435,12 @@ export const useVideoUpload = () => {
   }
 
   // Upload screen recording (for recorded videos)
-  const uploadRecording = async (recordedChunks: Blob[], recordedVideoUrl: string, recordingTime: number) => {
+  const uploadRecording = async (
+    recordedChunks: Blob[],
+    recordedVideoUrl: string,
+    recordingTime: number,
+    format?: { mimeType: string; isMP4: boolean } | null
+  ) => {
     if (!recordedVideoUrl || recordedChunks.length === 0) {
       throw new Error('No recording to upload')
     }
@@ -448,17 +453,42 @@ export const useVideoUpload = () => {
         message: 'Preparing upload...'
       }
 
-      // Create blob from recorded chunks
-      const rawBlob = new Blob(recordedChunks, { type: 'video/webm' })
+      const isMP4 = format?.isMP4 ?? false
+      const mimeType = format?.mimeType || 'video/webm'
 
-      uploadProgress.value = {
-        stage: 'uploading',
-        progress: 2,
-        message: 'Fixing video metadata...'
+      // Create blob from recorded chunks
+      const rawBlob = new Blob(recordedChunks, { type: mimeType })
+
+      let blob: Blob
+      let finalMimeType: string
+      let fileExtension: string
+
+      if (isMP4) {
+        // Already MP4, use directly
+        blob = rawBlob
+        finalMimeType = 'video/mp4'
+        fileExtension = 'mp4'
+      } else {
+        // WebM recording - need to convert to MP4 for iOS compatibility
+        uploadProgress.value = {
+          stage: 'compressing',
+          progress: 0,
+          message: 'Converting to MP4 for universal playback...'
+        }
+
+        try {
+          blob = await compressVideo(new File([rawBlob], 'recording.webm', { type: 'video/webm' }))
+          finalMimeType = 'video/mp4'
+          fileExtension = 'mp4'
+        } catch (conversionError) {
+          console.warn('MP4 conversion failed, uploading WebM:', conversionError)
+          // Fallback: fix WebM duration and upload as WebM
+          blob = await fixWebmDuration(rawBlob, recordingTime * 1000)
+          finalMimeType = 'video/webm'
+          fileExtension = 'webm'
+        }
       }
 
-      // Fix WebM duration metadata for proper seeking/scrubbing
-      const blob = await fixWebmDuration(rawBlob, recordingTime * 1000)
       const fileSize = blob.size
 
       // Generate thumbnail from video URL
@@ -474,8 +504,8 @@ export const useVideoUpload = () => {
       const urlResponse = await $fetch('/api/videos/upload-url', {
         method: 'POST',
         body: {
-          fileName: `recording-${Date.now()}.webm`,
-          contentType: 'video/webm',
+          fileName: `recording-${Date.now()}.${fileExtension}`,
+          contentType: finalMimeType,
           withThumbnail: !!thumbnailBlob,
         },
       })
@@ -521,7 +551,7 @@ export const useVideoUpload = () => {
         })
 
         xhr.open('PUT', urlResponse.videoUploadUrl)
-        xhr.setRequestHeader('Content-Type', 'video/webm')
+        xhr.setRequestHeader('Content-Type', finalMimeType)
         xhr.send(blob)
       })
 
