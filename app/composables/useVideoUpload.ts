@@ -218,6 +218,25 @@ export const useVideoUpload = () => {
     }
   }
 
+  // Remux fragmented MP4 to flat MP4 for progressive playback
+  const remuxToFlatMp4 = async (fmp4Blob: Blob): Promise<Blob> => {
+    const input = new Input({
+      formats: ALL_FORMATS,
+      source: new BlobSource(fmp4Blob),
+    })
+
+    const bufferTarget = new BufferTarget()
+    const output = new Output({
+      format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+      target: bufferTarget,
+    })
+
+    const conversion = await Conversion.init({ input, output })
+
+    await conversion.execute()
+    return new Blob([bufferTarget.buffer], { type: 'video/mp4' })
+  }
+
   // Upload to S3
   const uploadToS3 = async (videoBlob: Blob, thumbnailBlob: Blob, originalFileName: string, metadata: VideoMetadata) => {
     try {
@@ -415,7 +434,21 @@ export const useVideoUpload = () => {
         }
       }
 
-      // Stage 3: Upload to S3
+      // Stage 3: Remux fMP4 to flat MP4 for progressive playback
+      if (videoBlob.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4')) {
+        try {
+          uploadProgress.value = {
+            stage: 'compressing',
+            progress: 100,
+            message: 'Optimizing for streaming...'
+          }
+          videoBlob = await remuxToFlatMp4(videoBlob)
+        } catch (remuxError) {
+          console.warn('Remux failed, uploading as-is:', remuxError)
+        }
+      }
+
+      // Stage 4: Upload to S3
       if (videoMetadata.value) {
         await uploadToS3(videoBlob, thumbnailBlob, file.name, videoMetadata.value)
       }
@@ -464,12 +497,23 @@ export const useVideoUpload = () => {
       let fileExtension: string
 
       if (isMP4) {
-        // Already MP4, use directly
-        blob = rawBlob
+        // MediaRecorder MP4 is fragmented — remux to flat MP4 for progressive playback
+        uploadProgress.value = {
+          stage: 'compressing',
+          progress: 0,
+          message: 'Optimizing for streaming...'
+        }
+
+        try {
+          blob = await remuxToFlatMp4(rawBlob)
+        } catch (remuxError) {
+          console.warn('MP4 remux failed, uploading as-is:', remuxError)
+          blob = rawBlob
+        }
         finalMimeType = 'video/mp4'
         fileExtension = 'mp4'
       } else {
-        // WebM recording - need to convert to MP4 for iOS compatibility
+        // WebM recording - convert to MP4 for iOS compatibility
         uploadProgress.value = {
           stage: 'compressing',
           progress: 0,
@@ -478,6 +522,13 @@ export const useVideoUpload = () => {
 
         try {
           blob = await compressVideo(new File([rawBlob], 'recording.webm', { type: 'video/webm' }))
+          // compressVideo outputs fMP4 — remux to flat MP4
+          uploadProgress.value = {
+            stage: 'compressing',
+            progress: 100,
+            message: 'Optimizing for streaming...'
+          }
+          blob = await remuxToFlatMp4(blob)
           finalMimeType = 'video/mp4'
           fileExtension = 'mp4'
         } catch (conversionError) {

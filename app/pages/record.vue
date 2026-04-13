@@ -90,6 +90,7 @@
           :upload-progress="uploadProgress"
           :recording-duration="recordingTime"
           :recording-size="recordingSize"
+          :recording-format="recordingFormat"
         />
 
         <!-- Upload Complete - Share Link -->
@@ -156,6 +157,7 @@ const {
   uploadToS3,
   downloadRecording,
   resetRecording,
+  recordingFormat,
 } = useScreenRecorder()
 
 const selectedMode = ref<RecordingMode>('both')

@@ -13,7 +13,7 @@
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
           </svg>
-          <div class="file-name">recording-{{ Date.now() }}.webm</div>
+          <div class="file-name">recording-{{ Date.now() }}.{{ fileExtension }}</div>
         </div>
 
         <div class="file-details">
@@ -27,7 +27,7 @@
           </div>
           <div class="detail">
             <span>Format:</span>
-            <strong>WebM</strong>
+            <strong>{{ formatLabel }}</strong>
           </div>
         </div>
       </div>
@@ -66,7 +66,14 @@ const props = defineProps<{
   uploadProgress: UploadProgress
   recordingDuration: number
   recordingSize: number
+  recordingFormat?: { mimeType: string; isMP4: boolean } | null
 }>()
+
+const fileExtension = computed(() => {
+  if (!props.recordingFormat) return 'mp4'
+  return props.recordingFormat.isMP4 ? 'mp4' : 'webm'
+})
+const formatLabel = computed(() => fileExtension.value.toUpperCase())
 
 // Format file size
 const formatFileSize = (bytes: number): string => {
