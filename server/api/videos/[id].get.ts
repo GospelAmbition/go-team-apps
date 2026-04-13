@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
     console.error('Error getting video URL:', error)
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || 'Failed to get video URL',
+      message: error.statusCode ? error.message : 'Failed to get video',
     })
   }
 })

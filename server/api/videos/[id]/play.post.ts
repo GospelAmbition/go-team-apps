@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
     console.error('Error incrementing play count:', error)
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || 'Failed to increment play count',
+      message: error.statusCode ? error.message : 'Failed to track play',
     })
   }
 })

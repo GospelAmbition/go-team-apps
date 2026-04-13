@@ -62,8 +62,8 @@ export default defineEventHandler(async (event) => {
   } catch (error: any) {
     console.error('Error fetching videos:', error)
     throw createError({
-      statusCode: 500,
-      message: error.message || 'Failed to fetch videos',
+      statusCode: error.statusCode || 500,
+      message: error.statusCode ? error.message : 'Failed to fetch videos',
     })
   }
 })

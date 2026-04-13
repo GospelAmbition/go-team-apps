@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
     console.error('Error updating video:', error)
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || 'Failed to update video',
+      message: error.statusCode ? error.message : 'Failed to update video',
     })
   }
 })

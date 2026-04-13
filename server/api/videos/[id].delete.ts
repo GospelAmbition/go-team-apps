@@ -68,7 +68,7 @@ export default defineEventHandler(async (event) => {
     console.error('Error deleting video:', error)
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || 'Failed to delete video',
+      message: error.statusCode ? error.message : 'Failed to delete video',
     })
   }
 })

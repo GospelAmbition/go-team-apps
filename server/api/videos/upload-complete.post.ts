@@ -74,8 +74,8 @@ export default defineEventHandler(async (event) => {
   } catch (error: any) {
     console.error('Error saving video metadata:', error)
     throw createError({
-      statusCode: 500,
-      message: error.message || 'Failed to save video metadata',
+      statusCode: error.statusCode || 500,
+      message: error.statusCode ? error.message : 'Failed to save video',
     })
   }
 })
